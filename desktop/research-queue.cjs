@@ -1,0 +1,47 @@
+'use strict';
+const fs=require('node:fs/promises');
+const path=require('node:path');
+const {AiService}=require('./ai-service.cjs');
+const FIELDS=['title','authors','year','journal','doi','summary','questions','methods','findings','limitations','tags'];
+function validateDocument(input){
+ if(!input||!/^[a-f0-9]{64}$/.test(input.id)||typeof input.title!=='string'||input.title.length>1000||!Array.isArray(input.pages)||input.pages.length<1||input.pages.length>10000)throw Error('文件分析資料不正確');
+ let size=0;const pages=input.pages.map((p,i)=>{if(!p||p.page!==i+1||typeof p.text!=='string'||p.text.length>2000000)throw Error('頁碼或文字不正確');size+=p.text.length;return {page:p.page,text:p.text};});if(size>100000000)throw Error('全文超過分析容量，未送出');
+ return {id:input.id,title:input.title,pages};
+}
+function chunksFor(pages){
+ const chunks=[];let chunk=[];let length=0;
+ for(const p of pages){if(!p.text.trim())continue;for(let offset=0;offset<p.text.length;){let end=Math.min(p.text.length,offset+12000);if(end<p.text.length&&/[\uD800-\uDBFF]/.test(p.text[end-1])&&/[\uDC00-\uDFFF]/.test(p.text[end]))end--;const part={page:p.page,text:p.text.slice(offset,end)};offset=end;const n=JSON.stringify(part).length;if(length+n>15000&&chunk.length){chunks.push(chunk);chunk=[];length=0;}chunk.push(part);length+=n;}}
+ if(chunk.length)chunks.push(chunk);return chunks;
+}
+function parseResult(text,pages){
+ let raw;try{raw=JSON.parse(text.replace(/^\s*```(?:json)?\s*/i,'').replace(/\s*```\s*$/,''));}catch{throw Error('AI 未回傳有效 JSON；可重試，已完成分段保留');}
+ if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error('分析格式不正確');
+ const result={};for(const field of FIELDS){const values=Array.isArray(raw[field])?raw[field]:raw[field]?[raw[field]]:[];result[field]=values.slice(0,50).filter(v=>v&&typeof v.value==='string'&&v.value.length<=4000&&Number.isInteger(v.page)&&typeof v.quote==='string'&&v.quote.length>0&&v.quote.length<=600&&pages.some(p=>p.page===v.page&&p.text.includes(v.quote))&&(!['title','authors','year','journal','doi'].includes(field)||v.quote.includes(v.value))).map(v=>({value:v.value,page:v.page,quote:v.quote,confirmed:false}));}return result;
+}
+function mergeResults(results){const merged={};for(const field of FIELDS){const seen=new Set();merged[field]=results.flatMap(r=>r[field]||[]).filter(v=>{const key=v.value+'|'+v.page+'|'+v.quote;if(seen.has(key))return false;seen.add(key);return true;});}return merged;}
+class ResearchQueue{
+ constructor(directory,{service,onChange=()=>{}}={}){this.directory=directory;this.file=path.join(directory,'research-queue.json');this.jobs=[];this.enabled=false;this.active=null;this.onChange=onChange;this.service=service||new AiService(directory);const settings=this.service.settings.bind(this.service);this.service.settings=async()=>({...await settings(),provider:'codex-cli'});this.saving=Promise.resolve();this.stopping=false;}
+ async load(){try{const data=JSON.parse(await fs.readFile(this.file,'utf8'));this.enabled=data.enabled===true;this.jobs=data.jobs||[];for(const j of this.jobs)if(j.state==='running'){j.state='waiting';j.message='上次分析中斷，將從已儲存分段繼續';}}catch(e){if(e.code!=='ENOENT'){await fs.rename(this.file,this.file+'.invalid-'+Date.now()).catch(()=>{});this.jobs=[];this.enabled=false;this.loadError='分析佇列無法讀取，已停用分析；原資料另存保留';}}this.kick();return this.snapshot();}
+ snapshot(){return {enabled:this.enabled,error:this.loadError||null,jobs:this.jobs.map(({pages,chunks,partialResults,...job})=>({...job,processedPages:[...new Set((chunks||[]).slice(0,job.done||0).flatMap(c=>c.map(p=>p.page))).values()].filter(p=>!(chunks||[]).slice(job.done||0).some(c=>c.some(x=>x.page===p))),totalPages:pages?.length||0,textPages:pages?.filter(p=>p.text.trim()).length||0}))};}
+ async save(){const data=JSON.stringify({enabled:this.enabled,jobs:this.jobs});this.saving=this.saving.catch(()=>{}).then(async()=>{await fs.mkdir(this.directory,{recursive:true});await fs.writeFile(this.file+'.tmp',data);await fs.rename(this.file+'.tmp',this.file);});await this.saving;this.onChange(this.snapshot());}
+ async configure(enabled){if(typeof enabled!=='boolean')throw Error('分析設定不正確');this.enabled=enabled;if(!enabled&&this.active)this.service.cancel();await this.save();this.kick();return this.snapshot();}
+ async enqueue(input){const doc=validateDocument(input);if(this.jobs.some(j=>j.id===doc.id))return this.snapshot();const chunks=chunksFor(doc.pages);this.jobs.push({...doc,chunks,done:0,partialResults:[],usage:[],state:chunks.length?'waiting':'partial',message:chunks.length?'等待 Codex CLI':'無文字層，僅保留 metadata 與縮圖',version:1,created:Date.now(),result:null});await this.save();this.kick();return this.snapshot();}
+ async cancel(id){const job=this.jobs.find(j=>j.id===id);if(!job)throw Error('找不到分析工作');job.state='cancelled';job.message='已取消；服務端可能已計入用量';if(this.active===id)this.service.cancel();await this.save();return this.snapshot();}
+ async retry(id){const job=this.jobs.find(j=>j.id===id);if(!job)throw Error('找不到分析工作');if(this.active===id)throw Error('請先等待取消完成');if(job.state==='completed'||job.state==='partial'&&job.done===job.chunks.length)return this.snapshot();job.state=job.chunks.length?'waiting':'partial';job.message='保留已完成分段，等待繼續';await this.save();this.kick();return this.snapshot();}
+ async forget(id){if(this.active===id)this.service.cancel();this.jobs=this.jobs.filter(j=>j.id!==id);await this.save();return this.snapshot();}
+ kick(){if(this.active||!this.enabled||this.stopping)return;const job=this.jobs.find(j=>j.state==='waiting');if(job)this.process(job).catch(async e=>{job.state='failed';job.message=e.message;await this.save().catch(()=>{});});}
+ async process(job){this.active=job.id;try{
+  const cli=await this.service.checkCli();if(!cli.ok){job.state='waiting';job.message='Codex CLI 未安裝或未登入；僅使用 metadata';await this.save();return;}
+  if(!this.enabled||job.state==='cancelled'||this.stopping)return;job.state='running';job.message='逐頁文字分段分析';await this.save();
+  while(job.done<job.chunks.length){if(!this.enabled||job.state==='cancelled'||this.stopping){if(job.state!=='cancelled'){job.state='waiting';job.message='自動分析已停用，保留分段進度';await this.save();}return;}const chunk=job.chunks[job.done];const response=await this.service.run({action:'research',text:JSON.stringify({phase:'extract',pages:chunk})});job.usage.push({phase:'extract',chunk:job.done,usage:response.usage??null,model:response.model,at:Date.now()});const parsed=parseResult(response.text,chunk);job.partialResults.push(parsed);job.done++;job.result=mergeResults(job.partialResults);await this.save();}
+  // Every text segment has been read before synthesis. Hierarchical synthesis never truncates evidence.
+  let level=job.partialResults.map(r=>r),round=0;
+  while(level.length>1){const groups=[];let group=[],size=0;for(const r of level){const n=JSON.stringify(r).length;if(n>15000){const split={};for(const f of FIELDS)for(const v of r[f]||[]){const single={};single[f]=[v];groups.push([single]);}continue;}if(size+n>15000&&group.length){groups.push(group);group=[];size=0;}group.push(r);size+=n;}if(group.length)groups.push(group);if(groups.length>=level.length&&round>0)break;
+   const next=[];for(const g of groups){if(!this.enabled||job.state==='cancelled'||this.stopping){if(job.state!=='cancelled'){job.state='waiting';await this.save();}return;}if(g.length===1){next.push(g[0]);continue;}const response=await this.service.run({action:'research',text:JSON.stringify({phase:'synthesize',evidence:g})});job.usage.push({phase:'synthesize',round,usage:response.usage??null,model:response.model,at:Date.now()});next.push(parseResult(response.text,job.pages));await this.save();}level=next;if(++round>20)break;
+  }
+  if(!this.enabled||job.state==='cancelled'||this.stopping){if(job.state!=='cancelled'){job.state='waiting';await this.save();}return;}job.result=mergeResults(level);const blank=job.pages.filter(p=>!p.text.trim()).length;job.state=blank?'partial':'completed';job.message=blank?`已分析全部有文字的頁面；${blank} 頁無文字，未做 OCR`:'全部頁面文字已分段分析並整合；請核對 AI 結果';job.completed=Date.now();await this.save();
+ }catch(e){if(e.usage)job.usage.push({phase:'error',usage:e.usage,at:Date.now()});if(job.state!=='cancelled'){job.state=this.enabled?'failed':'waiting';job.message=e.message;}await this.save();}finally{this.active=null;if(this.enabled&&this.jobs.some(j=>j.state==='waiting'&&j.id!==job.id))this.kick();}}
+ stop(){this.stopping=true;this.service.cancel();}
+ async restore(data){if(this.active)throw Error('請先取消並等待背景分析停止，再還原');if(!data||!Array.isArray(data.jobs)||data.jobs.length>10000)throw Error('備份分析資料不正確');const jobs=[],seen=new Set();for(const old of data.jobs){const doc=validateDocument(old);if(seen.has(doc.id))throw Error('分析工作重複');seen.add(doc.id);const chunks=chunksFor(doc.pages);const done=Number(old.done);if(!Number.isInteger(done)||done<0||done>chunks.length||!Array.isArray(old.partialResults)||old.partialResults.length!==done)throw Error('分析進度不正確');const partialResults=old.partialResults.map(r=>parseResult(JSON.stringify(r),doc.pages));jobs.push({...doc,chunks,done,partialResults,result:old.result?parseResult(JSON.stringify(old.result),doc.pages):null,usage:Array.isArray(old.usage)?old.usage:[],state:done===chunks.length?(doc.pages.some(p=>!p.text.trim())?'partial':'completed'):'waiting',version:1,created:old.created||Date.now(),message:'從備份還原；自動分析已停用'});}this.enabled=false;this.jobs=jobs;await this.save();return this.snapshot();}
+}
+module.exports={ResearchQueue,validateDocument,chunksFor,parseResult,mergeResults,FIELDS};

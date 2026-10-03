@@ -1,0 +1,18 @@
+/* Research library: document evidence takes precedence over cover display. */
+:root{--green:#285d76;--selected:#e6eff4;--focus:#176a9a}
+body.dark{--green:#a1cde1;--selected:#293e48}
+.cover-button{height:168px;background:var(--rail)}
+.cover-button img{height:142px;box-shadow:none}
+.cover-fallback{font-family:var(--ui-font);font-size:18px;line-height:1.7;text-align:left;border-left:3px solid var(--green);padding:12px 18px}
+.entry h2{font-size:16px}.entry p{font-size:13px}
+.entry-actions{margin-top:12px;padding-top:0}.research-controls input{width:150px;min-width:0}.research-controls select{max-width:180px}.plugin-output{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;font:14px/1.7 var(--ui-font)}.plugin-row{padding:12px 0;border-block-end:1px solid var(--line)}
+.pdf-document .cover-button{height:260px}.pdf-document .cover-button img{height:236px;max-width:100%;object-fit:contain}
+.research-controls{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 20px}.research-controls button{border:1px solid var(--line);padding:7px 12px}
+.research-scope{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px}.research-scope button{font-size:12px}
+.document-associations,.analysis-status{overflow-wrap:anywhere}.analysis-status{border-left:2px solid var(--green);padding-left:8px}
+.project-link-row{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding:12px 0}.project-edit-row{display:grid;gap:8px;border-top:1px solid var(--line);padding:16px 0}
+.research-details{width:min(820px,94vw)}.bibliography-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.bibliography-form label{display:flex;flex-direction:column;text-align:left}.bibliography-form input{width:100%;min-width:0;padding:8px;border:1px solid var(--line);background:var(--paper)}.analysis-evidence{border-bottom:1px solid var(--line);padding:12px 0}.analysis-evidence textarea{display:block;width:100%;background:var(--paper);color:var(--ink);padding:10px}
+.document-list #shelf{display:flex;flex-direction:column;gap:12px}.document-list .entry{display:grid;grid-template-columns:96px minmax(160px,1fr) minmax(160px,1fr);gap:0 18px;padding:12px 0}.document-list .cover-button,.document-list .pdf-document .cover-button{grid-row:1/6;height:124px}.document-list .cover-button img,.document-list .pdf-document .cover-button img{height:112px;max-width:100%}.document-list .entry h2{margin:0}.document-list .entry-actions{grid-column:2/4;margin-top:0}.document-list .cover-fallback{font-size:12px;padding:6px}
+@media(max-width:700px){.bibliography-form{grid-template-columns:1fr}.document-list .entry{grid-template-columns:70px minmax(0,1fr)}.document-list .entry>*:not(.cover-button){grid-column:2}.document-list .entry-actions{grid-column:2}.pdf-document .cover-button{height:220px}.pdf-document .cover-button img{height:196px}.research-scope{align-items:flex-start}}
+@media(min-width:1800px){.cover-button{height:180px}.cover-button img{height:154px}}
+@media(max-width:700px){.cover-button{height:144px}.cover-button img{height:120px}.cover-fallback{font-size:15px;padding:10px}}

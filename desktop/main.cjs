@@ -1,0 +1,89 @@
+const {app,BrowserWindow,Menu,dialog,ipcMain,protocol,net,session,shell,clipboard,safeStorage}=require('electron');
+const path=require('node:path');
+const fs=require('node:fs/promises');
+const {pathToFileURL}=require('node:url');
+const {epubArguments,assetPath}=require('./paths.cjs');
+const {AiService}=require('./ai-service.cjs');
+const {ResearchQueue}=require('./research-queue.cjs');
+const {PluginHost}=require('./plugin-host.cjs');
+const origin='reader://app/index.html';
+app.setName('藏經');
+const smoke=!app.isPackaged&&process.env.CANGJING_SMOKE==='1';
+app.setPath('userData',smoke?path.join(__dirname,'.smoke-profile'):path.join(app.getPath('appData'),'CangjingReader'));
+protocol.registerSchemesAsPrivileged(['reader','cangjing-plugin'].map(scheme=>({scheme,privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true}})));
+let window,ready=false;
+const pending=[];
+function enqueue(files){pending.push(...files);if(ready&&window&&!window.isDestroyed())window.webContents.send('books:available');}
+function trusted(event){return window&&event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===origin;}
+async function chooseFiles(){const result=await dialog.showOpenDialog(window,{title:'開啟研究文件',properties:['openFile','multiSelections'],filters:[{name:'EPUB / PDF',extensions:['epub','pdf']}]});if(!result.canceled)enqueue(result.filePaths);}
+if(!app.requestSingleInstanceLock())app.quit();
+else{
+  enqueue(epubArguments(process.argv));
+  app.on('second-instance',(_event,args,cwd)=>{enqueue(epubArguments(args,cwd));if(window){if(window.isMinimized())window.restore();window.show();window.focus();}});
+  app.on('open-file',(event,file)=>{event.preventDefault();enqueue(epubArguments([file]));});
+  app.whenReady().then(async()=>{
+    app.setAppUserModelId('local.cangjing.reader');
+    const root=app.isPackaged?path.join(__dirname,'reader'):path.join(__dirname,'../ebook-browser');
+    const plugins=new PluginHost(app.getPath('userData'),path.join(__dirname,app.isPackaged?'plugins/document-info':'../plugins/document-info'));
+    await plugins.init();
+    protocol.handle('cangjing-plugin',async request=>{try{return await plugins.response(request.url);}catch{return new Response('Plugin disabled or invalid',{status:403});}});
+    protocol.handle('reader',request=>{try{return net.fetch(pathToFileURL(assetPath(root,request.url)).href);}catch{return new Response('Not found',{status:404});}});
+    session.defaultSession.setPermissionRequestHandler((_contents,permission,callback)=>callback(permission==='fullscreen'));
+    session.defaultSession.setPermissionCheckHandler((_contents,permission)=>permission==='fullscreen');
+    session.defaultSession.webRequest.onHeadersReceived((details,callback)=>{
+      const headers={...details.responseHeaders};
+      if(details.url.startsWith('reader://app/'))headers['Content-Security-Policy']=["default-src 'self' data: blob:; script-src 'self'; frame-src 'self' blob: cangjing-plugin:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: blob: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' data: blob:; object-src 'none'; base-uri 'none'"];
+      callback({responseHeaders:headers});
+    });
+    window=new BrowserWindow({width:1280,height:900,minWidth:620,minHeight:500,title:'藏經',icon:path.join(__dirname,'icon.png'),show:false,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,sandbox:true,nodeIntegration:false,webSecurity:true,offscreen:smoke,backgroundThrottling:!smoke}});
+    window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
+    window.webContents.on('will-navigate',(event,url)=>{if(url!==origin)event.preventDefault();});
+    window.webContents.on('will-attach-webview',event=>event.preventDefault());
+    window.webContents.on('did-start-navigation',(_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame)ready=false;});
+    window.once('ready-to-show',()=>{if(!smoke)window.show();});
+    const ai=new AiService(app.getPath('userData'),{safeStorage});
+    const queue=new ResearchQueue(app.getPath('userData'));
+    await queue.load();
+    const guard=event=>{if(!trusted(event))throw Error('Invalid sender');};
+    const documentId=id=>{if(typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))throw Error('Invalid document ID');return id;};
+    ipcMain.handle('plugins:list',event=>{guard(event);return plugins.list();});
+    ipcMain.handle('plugins:enable',async(event,id,value)=>{guard(event);return plugins.enable(id,value);});
+    ipcMain.handle('plugins:install',async event=>{guard(event);const result=await dialog.showOpenDialog(window,{title:'安裝本機外掛資料夾',properties:['openDirectory']});return result.canceled?plugins.list():plugins.install(result.filePaths[0]);});
+    ipcMain.handle('plugins:rpc',async(event,input)=>{guard(event);if(!input||typeof input!=='object'||typeof input.id!=='string'||typeof input.method!=='string')throw Error('Invalid plugin RPC');return plugins.rpc(input.id,input.method,input.args);});
+    ipcMain.handle('research:status',event=>{guard(event);return queue.snapshot();});
+    ipcMain.handle('research:check',async event=>{guard(event);return queue.service.checkCli();});
+    ipcMain.handle('research:configure',async(event,enabled)=>{guard(event);return queue.configure(enabled);});
+    ipcMain.handle('research:enqueue',async(event,input)=>{guard(event);if(!queue.enabled)throw Error('請先啟用自動分析');return queue.enqueue(input);});
+    ipcMain.handle('research:cancel',async(event,id)=>{guard(event);return queue.cancel(documentId(id));});
+    ipcMain.handle('research:retry',async(event,id)=>{guard(event);return queue.retry(documentId(id));});
+    ipcMain.handle('research:forget',async(event,id)=>{guard(event);return queue.forget(documentId(id));});
+    ipcMain.handle('backup:research',event=>{guard(event);return {jobs:queue.jobs};});
+    ipcMain.handle('backup:restore-research',async(event,data)=>{guard(event);return queue.restore(data);});
+    ipcMain.handle('backup:save',async(event,bytes)=>{guard(event);if(!(bytes instanceof Uint8Array)||bytes.byteLength>1024*1024*1024)throw Error('備份過大或格式不正確');const result=await dialog.showSaveDialog(window,{title:'儲存藏經備份',defaultPath:'Cangjing-backup.zip',filters:[{name:'藏經備份',extensions:['zip']}]});if(result.canceled)return false;await fs.writeFile(result.filePath,bytes);return true;});
+    ipcMain.handle('backup:open',async event=>{guard(event);const result=await dialog.showOpenDialog(window,{title:'選擇藏經備份',properties:['openFile'],filters:[{name:'藏經備份',extensions:['zip']}]});if(result.canceled)return null;const stat=await fs.stat(result.filePaths[0]);if(!stat.isFile()||stat.size>1024*1024*1024)throw Error('備份超過 1 GB');return fs.readFile(result.filePaths[0]);});
+    ipcMain.handle('ai:run',async(event,request)=>{guard(event);try{return {ok:true,...await ai.run(request)};}catch(error){return {ok:false,error:error.message,usage:error.usage||null};}});
+    ipcMain.handle('ai:cancel',event=>{guard(event);return ai.cancel();});
+    ipcMain.handle('ai:copy',(event,text)=>{guard(event);if(typeof text!=='string'||text.length>200000)throw Error('Invalid text');clipboard.writeText(text);});
+    ipcMain.handle('ai:check',event=>{guard(event);return ai.check();});
+    ipcMain.handle('ai:info',event=>{guard(event);return ai.info();});
+    ipcMain.handle('ai:configure',async(event,change)=>{guard(event);if(typeof change==='string')change={model:change};if(!change||typeof change!=='object'||Array.isArray(change))throw Error('Invalid settings');const allowed={};for(const key of ['provider','model','apiModel','apiKey','removeKey'])if(Object.hasOwn(change,key))allowed[key]=change[key];await ai.configure(allowed);return ai.check();});
+    ipcMain.handle('ai:choose-cli',async event=>{guard(event);const result=await dialog.showOpenDialog(window,{title:'選擇 Codex CLI',filters:[{name:'Codex 執行檔',extensions:['exe']}],properties:['openFile']});if(!result.canceled)await ai.configure({cliPath:result.filePaths[0]});return ai.check();});
+    window.on('closed',()=>{ai.cancel();queue.stop();});
+    window.webContents.on('did-start-navigation',(_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame)ai.cancel();});
+    ipcMain.handle('books:ready',event=>{if(!trusted(event))throw new Error('Invalid sender');ready=true;if(pending.length)window.webContents.send('books:available');});
+    ipcMain.handle('books:next',async event=>{
+      if(!trusted(event))throw new Error('Invalid sender');
+      const file=pending.shift();if(!file)return null;
+      try{const stat=await fs.stat(file);if(!stat.isFile()||!['.epub','.pdf'].includes(path.extname(file).toLowerCase()))throw new Error('不是 EPUB 或 PDF 檔案');if(stat.size>1024*1024*1024)throw new Error('檔案超過 1 GB');const bytes=await fs.readFile(file);app.addRecentDocument(file);return {name:path.basename(file),bytes};}
+      catch(error){return {name:path.basename(file),error:error.message};}
+    });
+    Menu.setApplicationMenu(Menu.buildFromTemplate([
+      {label:'檔案',submenu:[{label:'開啟 EPUB / PDF…',accelerator:'CmdOrCtrl+O',click:chooseFiles},{label:'設定預設閱讀器',click:()=>shell.openExternal('ms-settings:defaultapps')},{type:'separator'},{role:'quit',label:'結束'}]},
+      {label:'編輯',submenu:[{role:'copy',label:'複製'},{role:'selectAll',label:'全選'}]},
+      {label:'檢視',submenu:[{role:'togglefullscreen',label:'全螢幕'},{role:'reload',label:'重新載入'}]},
+      {label:'說明',submenu:[{label:'關於藏經',click:()=>dialog.showMessageBox(window,{title:'藏經',message:'藏經 '+app.getVersion(),detail:'EPUB 與網頁研究文件閱讀器\n文件庫位置：'+app.getPath('userData')})}]}
+    ]));
+    await window.loadURL(origin);
+  }).catch(error=>{dialog.showErrorBox('藏經啟動失敗',error.message);app.quit();});
+  app.on('window-all-closed',()=>app.quit());
+}

@@ -1,0 +1,24 @@
+# 藏經基礎版設計與架構
+
+## 設計決策
+
+- Surface：文件庫為 command-led、閱讀器為 reading-led；使用者整理研究文件並回查閱讀證據。
+- P1：文件列表或原文；P2：研究專案、文件分類與搜尋；P3：作者、格式、章節／頁碼和筆記；Action：匯入、閱讀與標註。
+- Content truth：空庫不預填文件、統計與書目；測試只用自製合成文件。
+- Composition：窄版「產品／匯入 → 搜尋／排序 → 文件格 → 可收合的專案／分類導覽」；寬版「研究專案／文件分類 | 搜尋、文件格」，閱讀時「目錄 | 原文 | 可選 AI 輔助」。
+- System：沿用既有平面工具介面、Lucide 圖示、中文字體與 44px 窄版控制；藍色標示操作和選取。PDF 使用完整比例首頁縮圖，EPUB 文字備援縮圖保持克制；清單模式保留較小比例縮圖。
+- Signature：PDF 真實首頁與證據頁碼，文字備援以左側線標辨識來源文件；無裝飾動效、假數據與行銷主視覺。
+- Failure risks：窄版工具列換行遮蔽原文；超寬文件格疏離。以 390、768、1440、1920、2560px 真實 Chromium viewport 檢查。
+
+## 桌面架構
+
+保留主程序掌管本機檔案、AI 服務和加密設定；renderer 管理閱讀介面與 IndexedDB；preload 以 contextBridge 暴露限定 invoke 方法。contextIsolation、sandbox、webSecurity 為 true，nodeIntegration 為 false。IPC 檢查主視窗、主 frame 與固定來源，AI 請求及設定有型別／長度／允許值驗證。檔案由原生對話框或啟動參數取得，讀取前限制格式、大小與檔案類型；應用資源阻擋路徑越界。
+
+藏經使用 local.cangjing.reader、Cangjing.exe、%APPDATA%\CangjingReader、cangjing-library-v1 與獨立 localStorage 鍵；不從藏書資料目錄遷移。單一執行個體鎖依 Electron userData 隔離。API 金鑰在新資料目錄加密保存，不回傳 renderer。CLI 仍使用使用者既有 Codex 登入身份與額度；AI 服務帳戶不因資料目錄分開而變成不同帳戶。
+
+後續風險：匯入大型文件仍在 renderer 處理，全文索引宜搬到 worker；資料備份／遷移需先於新資料表。Windows 為本次驗證平台，macOS 生命週期未驗證。開發建置工具依賴 audit 告警需另外處理，不把測試通過解讀為全部依賴無風險。
+
+
+## 已驗證與最弱環節
+
+文件庫與 PDF 閱讀器已於五種 Chromium viewport 驗證。最弱環節是窄版 PDF 工具列的空間成本：390px 需多行控制；已確認原文仍可見且目錄會自動收起。大型文件庫與全文文字擷取效能仍未壓力測試。背景分析和插件狀態不阻擋核心閱讀；損壞的佇列或外掛設定會另存保留並停用相關功能。

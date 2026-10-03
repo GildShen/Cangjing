@@ -1,0 +1,30 @@
+const {contextBridge,ipcRenderer}=require('electron');
+if(process.isMainFrame){
+  contextBridge.exposeInMainWorld('desktopReader',{
+    researchStatus:()=>ipcRenderer.invoke('research:status'),
+    backupResearch:()=>ipcRenderer.invoke('backup:research'),
+    backupRestoreResearch:data=>ipcRenderer.invoke('backup:restore-research',data),
+    backupSave:bytes=>ipcRenderer.invoke('backup:save',bytes),
+    backupOpen:()=>ipcRenderer.invoke('backup:open'),
+    pluginsList:()=>ipcRenderer.invoke('plugins:list'),
+    pluginsEnable:(id,value)=>ipcRenderer.invoke('plugins:enable',id,value),
+    pluginsInstall:()=>ipcRenderer.invoke('plugins:install'),
+    pluginsRpc:input=>ipcRenderer.invoke('plugins:rpc',input),
+    researchCheck:()=>ipcRenderer.invoke('research:check'),
+    researchConfigure:enabled=>ipcRenderer.invoke('research:configure',enabled),
+    researchEnqueue:document=>ipcRenderer.invoke('research:enqueue',document),
+    researchCancel:id=>ipcRenderer.invoke('research:cancel',id),
+    researchRetry:id=>ipcRenderer.invoke('research:retry',id),
+    researchForget:id=>ipcRenderer.invoke('research:forget',id),
+    aiRun:request=>ipcRenderer.invoke('ai:run',request),
+    aiCancel:()=>ipcRenderer.invoke('ai:cancel'),
+    aiCopy:text=>ipcRenderer.invoke('ai:copy',text),
+    aiCheck:()=>ipcRenderer.invoke('ai:check'),
+    aiInfo:()=>ipcRenderer.invoke('ai:info'),
+    aiConfigure:change=>ipcRenderer.invoke('ai:configure',change),
+    aiChooseCli:()=>ipcRenderer.invoke('ai:choose-cli'),
+    next:()=>ipcRenderer.invoke('books:next'),
+    ready:()=>ipcRenderer.invoke('books:ready'),
+    onOpen:callback=>{const listener=()=>callback();ipcRenderer.on('books:available',listener);return ()=>ipcRenderer.removeListener('books:available',listener);}
+  });
+}

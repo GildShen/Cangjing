@@ -1,0 +1,29 @@
+{
+  "id": "document-info",
+  "name": "文件資訊摘要",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "entry": "entry.js",
+  "permissions": [
+    "documents.metadata.read",
+    "notes.export"
+  ],
+  "contributions": {
+    "commands": [
+      {
+        "id": "summarize-library",
+        "title": "顯示文件資訊摘要"
+      },
+      {
+        "id": "export-notes",
+        "title": "匯出筆記 Markdown"
+      }
+    ],
+    "panels": [
+      {
+        "id": "document-metadata",
+        "title": "文件資訊"
+      }
+    ]
+  }
+}

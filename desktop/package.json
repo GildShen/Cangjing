@@ -1,0 +1,96 @@
+{
+  "name": "cangjing-reader",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Local research document library and annotated PDF / EPUB reader",
+  "author": "Cangjing contributors; based on Cangshu by GildShen",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "icons": "node make-icon.cjs",
+    "dist": "node build-pdf.cjs && npm run icons && electron-builder --win nsis --x64",
+    "test": "node --test test.cjs ai.test.cjs openai.test.cjs research.test.cjs",
+    "build": "node build-pdf.cjs && npm run icons && electron-builder --win --dir --x64",
+    "test:ui": "node ui-smoke-runner.cjs"
+  },
+  "devDependencies": {
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3",
+    "esbuild": "^0.28.2",
+    "pdfjs-dist": "^6.3.289",
+    "sharp": "0.35.4"
+  },
+  "build": {
+    "appId": "local.cangjing.reader",
+    "productName": "藏經",
+    "executableName": "Cangjing",
+    "asar": true,
+    "directories": {
+      "output": "../outputs/desktop-release"
+    },
+    "files": [
+      "plugin-host.cjs",
+      "research-queue.cjs",
+      "main.cjs",
+      "ai-service.cjs",
+      "ai-usage.cjs",
+      "openai-provider.cjs",
+      "preload.cjs",
+      "paths.cjs",
+      "icon.png",
+      {
+        "from": "..",
+        "to": ".",
+        "filter": [
+          "LICENSE",
+          "THIRD_PARTY_NOTICES.md"
+        ]
+      },
+      {
+        "from": "../ebook-browser",
+        "to": "reader",
+        "filter": [
+          "**/*",
+          "!README.md"
+        ]
+      },
+      {
+        "filter": [
+          "**/*"
+        ],
+        "from": "../plugins",
+        "to": "plugins"
+      }
+    ],
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        "nsis"
+      ],
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Cangjing-Setup-${version}.${ext}"
+    },
+    "fileAssociations": [
+      {
+        "ext": "pdf",
+        "name": "PDF 文件",
+        "description": "使用藏經閱讀 PDF",
+        "role": "Viewer"
+      },
+      {
+        "ext": "epub",
+        "name": "EPUB 研究文件",
+        "description": "使用藏經閱讀 EPUB",
+        "role": "Viewer"
+      }
+    ]
+  }
+}
