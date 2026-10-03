@@ -6,6 +6,8 @@ Original project code is licensed under the MIT License in LICENSE.
 | Component | Upstream | License |
 | --- | --- | --- |
 | EPUB.js | https://github.com/futurepress/epub.js | BSD-2-Clause |
+| js-yaml 4.3.2 | https://github.com/nodeca/js-yaml | MIT; full license in packaged node_modules/js-yaml/LICENSE |
+| argparse 2.0.1 | https://github.com/nodeca/argparse | Python-2.0; full license in packaged node_modules/argparse/LICENSE |
 | JSZip | https://github.com/Stuk/jszip | MIT or GPL-3.0; used under MIT |
 | Lucide | https://github.com/lucide-icons/lucide | ISC |
 | DOMPurify | https://github.com/cure53/DOMPurify | Apache-2.0 or MPL-2.0 |

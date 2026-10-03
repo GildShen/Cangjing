@@ -46,3 +46,7 @@
 !/desktop/page-tasks.cjs
 !/desktop/knowledge-queue.cjs
 !/desktop/workflow.test.cjs
+
+!/research-skills/
+!/desktop/skill-manager.cjs
+!/desktop/skills.test.cjs

@@ -38,3 +38,11 @@
 三個 icon-only 標註按鈕具 aria-label／title。右鍵與 toolbar 在 pointerdown 保留來源選取，依文件／頁碼核對；元素邊界 Range 亦換算文字偏移。選單方向鍵與 Enter／Space 可操作；無選取和編輯欄位保留原生選單。
 
 UsageUI 統一累計／表格與狀態，不把快取或推理再加到合計。使用穩定 DOM 保留 details 開啟狀態和 summary 焦點。
+
+## 0.3.0 管理與研究架構
+
+研究 Skill 管理與 renderer 外掛分離；主程序驗證文字套件並產生 immutable 指令快照，維持相同窄 IPC、context isolation、sandbox 與工具禁用。共同規則為產品獨立 AGENTS.md。
+
+專案管理是任務表單：專案名稱／PDF 數的清單 → 選取資料 → 單一編輯區／並排儲存取消刪除；小視窗上下配置。未儲存变更可取消或確認捨棄，專案與關聯以同一 IndexedDB 交易保存。
+
+封面以原始 PDF 指定頁渲染，保留完整比例，先预覽再套用或直接從頁面縮圖右鍵設定。只更新 cover／coverPage，不改原 PDF 或 position；錯誤保持原資料。預讀同次產生來源架構，由既有 Cytoscape UI 顯示；預設不顯示，額外萃取為手動功能，不自動讀庫。

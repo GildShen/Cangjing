@@ -37,11 +37,11 @@ function drawShelf(){
     if(record.cover){const img=document.createElement('img');img.src=URL.createObjectURL(record.cover);coverUrls.push(img.src);img.alt=record.title+' 封面';cover.append(img);}else{const text=document.createElement('span');text.className='cover-fallback';text.textContent=record.title;cover.append(text);}
     const title=document.createElement('h2');title.textContent=record.title;
     const author=document.createElement('p');author.textContent=record.author||'作者未標示';
-    const meta=document.createElement('p');meta.textContent='PDF · '+record.sections+' 頁 · '+(record.size/1048576).toFixed(1)+' MB';
+    const meta=document.createElement('p');meta.textContent='PDF · '+record.sections+' 頁 · 封面第 '+(record.coverPage||1)+' 頁 · '+(record.size/1048576).toFixed(1)+' MB';
     const actions=document.createElement('div');actions.className='entry-actions';
     const read=document.createElement('button');read.className='read';read.textContent=record.opened?'繼續閱讀':'開始閱讀';read.onclick=()=>openBook(record.id);
     const remove=document.createElement('button');remove.title='移除 '+record.title;remove.setAttribute('aria-label',remove.title);remove.innerHTML='<i data-lucide="trash-2"></i>';remove.onclick=async()=>{if(!confirm('從文件庫移除《'+record.title+'》？原始 PDF 檔案不受影響。'))return;try{await window.ResearchUI?.removed(record.id);await store.remove(record.id);await store.removePosition(record.id);records=records.filter(r=>r.id!==record.id);drawShelf();}catch(e){status('移除失敗：'+e.message);}};
-    actions.append(read,remove);entry.append(cover,title,author,meta,actions);if(window.LibraryExtras){actions.insertBefore(LibraryExtras.assignment(record.id),remove);LibraryExtras.draggable(entry,record.id);}if(window.ResearchUI)ResearchUI.decorate(entry,record);$('shelf').append(entry);
+    const coverPage=document.createElement('button');coverPage.title='設定文件封面';coverPage.setAttribute('aria-label','設定文件封面');coverPage.innerHTML='<i data-lucide="image"></i>';coverPage.onclick=()=>PdfCover.open(record.id);actions.append(read,coverPage,remove);entry.append(cover,title,author,meta,actions);if(window.LibraryExtras){actions.insertBefore(LibraryExtras.assignment(record.id),remove);LibraryExtras.draggable(entry,record.id);}if(window.ResearchUI)ResearchUI.decorate(entry,record);$('shelf').append(entry);
   }if(window.LibraryExtras)LibraryExtras.refresh();icons();
 }
 async function importFiles(files){
@@ -57,7 +57,7 @@ async function importFiles(files){
       const id=Array.from(new Uint8Array(hash),n=>n.toString(16).padStart(2,'0')).join('');
       if(records.some(r=>r.id===id)){duplicates++;importedIds.push(id);continue;}
       if(/\.pdf$/i.test(file.name)){
-        const metadata=await PdfReader.metadata(data);const record={id,type:'pdf',title:metadata.title||file.name.replace(/\.pdf$/i,''),author:metadata.author||'',sections:metadata.sections,data,size:file.size,added:Date.now(),opened:0};
+        const metadata=await PdfReader.metadata(data);const record={id,type:'pdf',title:metadata.title||file.name.replace(/\.pdf$/i,''),author:metadata.author||'',sections:metadata.sections,coverPage:1,data,size:file.size,added:Date.now(),opened:0};
         record.metadata={title:metadata.title||'',authors:metadata.author||''};
         try{record.cover=await PdfReader.preview(data);}catch(e){record.previewError=e.message;}
         await store.put(record);records.push(record);imported++;importedIds.push(id);window.ResearchUI?.imported(record);continue;

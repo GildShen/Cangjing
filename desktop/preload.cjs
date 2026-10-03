@@ -1,6 +1,10 @@
 const {contextBridge,ipcRenderer}=require('electron');
 if(process.isMainFrame){
   contextBridge.exposeInMainWorld('desktopReader',{
+    skillsStatus:()=>ipcRenderer.invoke('skills:status'),
+    skillsChange:input=>ipcRenderer.invoke('skills:change',input),
+    skillsImport:kind=>ipcRenderer.invoke('skills:import',kind),
+    skillsImportRules:()=>ipcRenderer.invoke('skills:import-rules'),
     researchStatus:()=>ipcRenderer.invoke('research:status'),
     knowledgeStatus:()=>ipcRenderer.invoke('knowledge:status'),
     knowledgeConfigure:value=>ipcRenderer.invoke('knowledge:configure',value),

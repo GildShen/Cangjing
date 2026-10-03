@@ -1,3 +1,3 @@
 # 藏經桌面版
 
-請依專案根目錄 README 的 npm ci、npm test、npm start 啟動。資料位於 %APPDATA%\CangjingReader；打包輸出位於 outputs/desktop-release。此版本不提供已發布安裝檔。
+啟動、測試與建置見根目錄 README。資料位於 %APPDATA%/CangjingReader，共同研究規則為 AGENTS.md，研究 Skill 設定與受控文字為 research-skills.json；CLI 與 renderer 外掛維持隔離。0.3.0 Windows x64 安裝檔輸出於 outputs/desktop-release。

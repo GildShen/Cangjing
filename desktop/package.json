@@ -1,6 +1,6 @@
 {
   "name": "cangjing-reader",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "license": "MIT",
   "description": "Local PDF research library with source-linked annotations",
   "author": "Cangjing contributors; based on Cangshu by GildShen",
@@ -10,7 +10,7 @@
     "start": "electron .",
     "icons": "node make-icon.cjs",
     "dist": "node build-pdf.cjs && npm run icons && electron-builder --win nsis --x64",
-    "test": "node --test test.cjs ai.test.cjs openai.test.cjs research.test.cjs workflow.test.cjs",
+    "test": "node --test test.cjs ai.test.cjs openai.test.cjs research.test.cjs workflow.test.cjs skills.test.cjs",
     "build": "node build-pdf.cjs && npm run icons && electron-builder --win --dir --x64",
     "test:ui": "node ui-smoke-runner.cjs"
   },
@@ -31,6 +31,7 @@
       "output": "../outputs/desktop-release"
     },
     "files": [
+      "skill-manager.cjs",
       "cli-scheduler.cjs",
       "page-tasks.cjs",
       "knowledge-queue.cjs",
@@ -68,6 +69,13 @@
         ],
         "from": "../plugins",
         "to": "plugins"
+      },
+      {
+        "from": "../research-skills",
+        "to": "research-skills",
+        "filter": [
+          "**/*.md"
+        ]
       }
     ],
     "win": {
@@ -93,5 +101,8 @@
         "role": "Viewer"
       }
     ]
+  },
+  "dependencies": {
+    "js-yaml": "4.3.2"
   }
 }
