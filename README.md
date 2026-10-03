@@ -1,8 +1,10 @@
 # 藏經 Cangjing
 
-本機 PDF 研究文件整理工具，基於 [藏書 Cangshu](https://github.com/GildShen/cangshu)（MIT，原作者 GildShen）。目前版本 0.3.0，主要驗證平台為 Windows。
+本機 PDF 研究文件整理工具，基於 [藏書 Cangshu](https://github.com/GildShen/cangshu)（MIT，原作者 GildShen）。目前版本 0.3.1，主要驗證平台為 Windows。
 
 ## 功能
+
+0.3.1 將研究理解架構改為階層心智圖，按文字與子樹尺寸排版，可展開收合、平移縮放、符合畫面與來源跳頁。PDF 底部頁碼左側顯示目前文件背景分析，點選可直接查看進度、取消／重試、用量與結果。
 
 0.3.0 新增「研究規則／Skill」管理、本機資料夾與 ZIP 匯入、四個內建研究流程及共同 AGENTS.md。預讀與多頁研究保存當時指令快照，改規則不改舊工作／重試；可回顧實際指令與歷史用量。見 [研究 Skills](docs/research-skills.md)。
 
@@ -48,7 +50,7 @@ npm run build  # Windows 可執行資料夾
 npm run dist   # Windows NSIS 安裝檔
 ```
 
-輸出位於 `outputs/desktop-release/`；可直接執行完整 `win-unpacked/Cangjing.exe` 資料夾，或執行 `Cangjing-Setup-0.3.0.exe` 安裝。安裝包未簽章。儲存庫不提交安裝包、node_modules、資料檔或測試截圖。
+輸出位於 `outputs/desktop-release/`；可直接執行完整 `win-unpacked/Cangjing.exe` 資料夾，或執行 `Cangjing-Setup-0.3.1.exe` 安裝。安裝包未簽章。儲存庫不提交安裝包、node_modules、資料檔或測試截圖。
 
 版本鎖定於 `desktop/package-lock.json`。UI 測試使用自製 PDF 與舊版資料相容測試、獨立測試 profile 與 Chromium viewport，產物放在未追蹤的 `work/`，不呼叫真實 AI。若已有相同版本 Electron，可用 `CANGJING_ELECTRON_BINARY` 指定 UI 測試執行檔。建置工具鏈仍有 npm audit 告警，詳見 [驗證紀錄](docs/verification.md)。
 

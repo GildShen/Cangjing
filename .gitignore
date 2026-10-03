@@ -50,3 +50,5 @@
 !/research-skills/
 !/desktop/skill-manager.cjs
 !/desktop/skills.test.cjs
+
+!/desktop/mindmap.test.cjs
