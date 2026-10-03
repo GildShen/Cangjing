@@ -59,3 +59,6 @@ parent 檢查訊息來源 frame、`origin === 'null'`、每次載入產生的 to
 `npm test` 驗證 manifest、API 相容性、禁用／未授權請求與 CSP。`npm run test:ui` 在 Electron 實測範例載入、metadata 命令、筆記匯出、無 Node／preload／core globals 與停用清理。不需要私人資料與真實服務呼叫。
 
 後續另行設計側欄／文件詳情的豐富面板、分析器、全文／頁碼文字／選取事件、寫筆記、AI 與網路權限。敏感能力必須有新的顯式權限、主程序驗證及測試；v1 不宣稱這些擴充點已完成。
+
+
+0.2 提供受信任主程序 `KnowledgeQueue` 的 schemaVersion 1 分析器 adapter 介面，見 [研究流程](research-workflows.md)。這是核心服務擴充，沒有改變 v1 外掛權限，外掛仍不能存取原頁文字或任意呼叫 AI。

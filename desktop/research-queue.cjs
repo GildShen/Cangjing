@@ -10,7 +10,7 @@ function validateDocument(input){
 }
 function chunksFor(pages){
  const chunks=[];let chunk=[];let length=0;
- for(const p of pages){if(!p.text.trim())continue;for(let offset=0;offset<p.text.length;){let end=Math.min(p.text.length,offset+12000);if(end<p.text.length&&/[\uD800-\uDBFF]/.test(p.text[end-1])&&/[\uDC00-\uDFFF]/.test(p.text[end]))end--;const part={page:p.page,text:p.text.slice(offset,end)};offset=end;const n=JSON.stringify(part).length;if(length+n>15000&&chunk.length){chunks.push(chunk);chunk=[];length=0;}chunk.push(part);length+=n;}}
+ for(const p of pages){if(!p.text.trim())continue;for(let offset=0;offset<p.text.length;){let end=Math.min(p.text.length,offset+12000),part;do{if(end<p.text.length&&/[\uD800-\uDBFF]/.test(p.text[end-1])&&/[\uDC00-\uDFFF]/.test(p.text[end]))end--;part={page:p.page,text:p.text.slice(offset,end)};if(JSON.stringify(part).length<=14000)break;end=offset+Math.max(1,Math.floor((end-offset)/2));}while(end>offset);offset=end;const n=JSON.stringify(part).length;if(length+n>15000&&chunk.length){chunks.push(chunk);chunk=[];length=0;}chunk.push(part);length+=n;}}
  if(chunk.length)chunks.push(chunk);return chunks;
 }
 function parseResult(text,pages){

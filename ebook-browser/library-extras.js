@@ -139,7 +139,7 @@
     catch(error){status('筆記儲存失敗：'+error.message);}finally{save.disabled=false;}
   };
   async function renderNotes(){
-    const rows=(await db.all('annotations')).filter(n=>n.bookId===active.id&&n.kind!=='highlight').sort((a,b)=>b.updated-a.updated);list.replaceChildren();
+    const rows=(await db.all('annotations')).filter(n=>n.bookId===active.id&&!['highlight','underline','comment'].includes(n.kind)).sort((a,b)=>b.updated-a.updated);list.replaceChildren();
     if(!rows.length)list.append(el('p','尚無筆記'));
     for(const note of rows){
       const row=el('article');row.className='saved-note';row.append(el('h3',note.chapter||'閱讀位置'),el('time',new Date(note.updated).toLocaleString('zh-TW')));

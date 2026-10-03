@@ -41,3 +41,8 @@
 
 !/desktop/ui-smoke.cjs
 !/desktop/ui-smoke-runner.cjs
+
+!/desktop/cli-scheduler.cjs
+!/desktop/page-tasks.cjs
+!/desktop/knowledge-queue.cjs
+!/desktop/workflow.test.cjs

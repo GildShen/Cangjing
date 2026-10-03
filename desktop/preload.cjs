@@ -2,6 +2,16 @@ const {contextBridge,ipcRenderer}=require('electron');
 if(process.isMainFrame){
   contextBridge.exposeInMainWorld('desktopReader',{
     researchStatus:()=>ipcRenderer.invoke('research:status'),
+    knowledgeStatus:()=>ipcRenderer.invoke('knowledge:status'),
+    knowledgeConfigure:value=>ipcRenderer.invoke('knowledge:configure',value),
+    knowledgeEnqueue:input=>ipcRenderer.invoke('knowledge:enqueue',input),
+    knowledgeCancel:id=>ipcRenderer.invoke('knowledge:cancel',id),
+    knowledgeRetry:id=>ipcRenderer.invoke('knowledge:retry',id),
+    pageTasks:()=>ipcRenderer.invoke('pages:status'),
+    pageEnqueue:input=>ipcRenderer.invoke('pages:enqueue',input),
+    pageCancel:id=>ipcRenderer.invoke('pages:cancel',id),
+    pageRetry:id=>ipcRenderer.invoke('pages:retry',id),
+    researchPages:id=>ipcRenderer.invoke('research:pages',id),
     backupResearch:()=>ipcRenderer.invoke('backup:research'),
     backupRestoreResearch:data=>ipcRenderer.invoke('backup:restore-research',data),
     backupSave:bytes=>ipcRenderer.invoke('backup:save',bytes),

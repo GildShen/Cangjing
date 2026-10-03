@@ -1,6 +1,6 @@
 {
   "name": "cangjing-reader",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "description": "Local research document library and annotated PDF / EPUB reader",
   "author": "Cangjing contributors; based on Cangshu by GildShen",
@@ -10,11 +10,12 @@
     "start": "electron .",
     "icons": "node make-icon.cjs",
     "dist": "node build-pdf.cjs && npm run icons && electron-builder --win nsis --x64",
-    "test": "node --test test.cjs ai.test.cjs openai.test.cjs research.test.cjs",
+    "test": "node --test test.cjs ai.test.cjs openai.test.cjs research.test.cjs workflow.test.cjs",
     "build": "node build-pdf.cjs && npm run icons && electron-builder --win --dir --x64",
     "test:ui": "node ui-smoke-runner.cjs"
   },
   "devDependencies": {
+    "cytoscape": "3.34.3",
     "electron": "44.3.0",
     "electron-builder": "26.15.3",
     "esbuild": "^0.28.2",
@@ -30,6 +31,9 @@
       "output": "../outputs/desktop-release"
     },
     "files": [
+      "cli-scheduler.cjs",
+      "page-tasks.cjs",
+      "knowledge-queue.cjs",
       "plugin-host.cjs",
       "research-queue.cjs",
       "main.cjs",
