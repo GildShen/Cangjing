@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  window.WebBookReader?.loadWebFonts();
+
   const library = document.getElementById('library');
   const sidebar = document.querySelector('.folder-sidebar');
   const heading = document.querySelector('.library-head h1');
@@ -9,8 +9,8 @@
     const toggle = document.createElement('button');
     toggle.id = 'folders-toggle';
     toggle.type = 'button';
-    toggle.title = '開關資料夾';
-    toggle.setAttribute('aria-label', '開關資料夾');
+    toggle.title = '開關導覽';
+    toggle.setAttribute('aria-label', '開關導覽');
     toggle.setAttribute('aria-controls', sidebar.id);
     toggle.setAttribute('aria-expanded', 'false');
     toggle.innerHTML = '<i data-lucide="panel-left"></i>';
@@ -23,7 +23,7 @@
     toggle.addEventListener('click', () => {
       const opened = library.classList.toggle('folders-open');
       toggle.setAttribute('aria-expanded', String(opened));
-      if (opened) sidebar.querySelector('button')?.focus();
+      if (opened) sidebar.querySelector('[role=tab][aria-selected=true]')?.focus();
     });
     sidebar.addEventListener('click', event => {
       if (event.target.closest('[data-folder], [data-project]')) close(true);

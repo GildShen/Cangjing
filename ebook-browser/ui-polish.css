@@ -53,3 +53,4 @@ dialog.library-dialog{padding:24px;border-radius:8px;box-shadow:0 18px 70px #000
 }
 @media(prefers-reduced-motion:reduce){button{transition:none}}
 @media(forced-colors:active){.folder-item[aria-current=true],#toc button.active{outline:2px solid Highlight;outline-offset:-2px}}
+.header-import{width:auto;flex-shrink:0;justify-content:flex-end}.header-import .command{white-space:nowrap}@media(max-width:700px){body>header{flex-wrap:nowrap}.header-import{width:auto;max-width:none}.header-import .command{padding:8px 10px}}

@@ -1,8 +1,8 @@
 {
   "name": "cangjing-reader",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "license": "MIT",
-  "description": "Local research document library and annotated PDF / EPUB reader",
+  "description": "Local PDF research library with source-linked annotations",
   "author": "Cangjing contributors; based on Cangshu by GildShen",
   "private": true,
   "main": "main.cjs",
@@ -56,7 +56,10 @@
         "to": "reader",
         "filter": [
           "**/*",
-          "!README.md"
+          "!README.md",
+          "!converter.js",
+          "!export.js",
+          "!vendor/epub.min.js"
         ]
       },
       {
@@ -87,12 +90,6 @@
         "ext": "pdf",
         "name": "PDF 文件",
         "description": "使用藏經閱讀 PDF",
-        "role": "Viewer"
-      },
-      {
-        "ext": "epub",
-        "name": "EPUB 研究文件",
-        "description": "使用藏經閱讀 EPUB",
         "role": "Viewer"
       }
     ]

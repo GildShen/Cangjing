@@ -1,6 +1,6 @@
 # Third-party components
 
-The application includes third-party components under their respective licenses.
+The application and retained historical source include third-party components under their respective licenses. Since 0.2.1 the runtime is PDF-only; EPUB.js, converter.js and export.js are excluded from the application package. EPUB.js notices remain for the historical source retained in this repository.
 Original project code is licensed under the MIT License in LICENSE.
 
 | Component | Upstream | License |

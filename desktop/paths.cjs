@@ -1,6 +1,6 @@
 const path = require('node:path');
-function epubArguments(args,cwd=process.cwd()) {
-  return args.filter(arg=>typeof arg==='string'&&!arg.startsWith('-')&&['.epub','.pdf'].includes(path.extname(arg).toLowerCase())).map(arg=>path.resolve(cwd,arg));
+function pdfArguments(args,cwd=process.cwd()) {
+  return args.filter(arg=>typeof arg==='string'&&!arg.startsWith('-')&&['.pdf'].includes(path.extname(arg).toLowerCase())).map(arg=>path.resolve(cwd,arg));
 }
 function assetPath(root,url) {
   const parsed=new URL(url);
@@ -10,4 +10,4 @@ function assetPath(root,url) {
   if(relative.startsWith('..')||path.isAbsolute(relative))throw new Error('Invalid asset path');
   return target;
 }
-module.exports={epubArguments,assetPath};
+module.exports={pdfArguments,assetPath};

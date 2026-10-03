@@ -8,8 +8,8 @@ process.env.CANGJING_SMOKE='1';
 // Only synthetic fixtures are used; no login, document, or cloud request is involved.
 const {AiService}=require('./ai-service.cjs');
 AiService.prototype.checkCli=async()=>({ok:true,model:'fixture'});
-AiService.prototype.runDirect=async function(input){const data=JSON.parse(input.text);if(input.action==='custom'&&data.phase==='graph-extract'){const p=data.pages[0];return {text:JSON.stringify({nodes:[{key:'a',name:'Research evidence',type:'concept',page:p.page,quote:p.text,certainty:'extracted'},{key:'b',name:'Sample method',type:'method',page:p.page,quote:p.text,certainty:'inferred'}],edges:[{source:'a',target:'b',relation:'describes',page:p.page,quote:p.text,certainty:'ambiguous'}]}),usage:{totalTokens:25},model:'fixture'};}if(input.action==='custom')return {text:'Synthetic comparison · PDF page 1 · Research evidence sample.',usage:{totalTokens:18},model:'fixture'};throw Error('Unexpected synthetic AI action');};
-const originalSetPath=app.setPath.bind(app);app.setPath=(key,value)=>originalSetPath(key,key==='userData'?path.join(__dirname,'../work/.smoke-profile-'+process.pid):value);
+AiService.prototype.runDirect=async function(input){const data=JSON.parse(input.text);if(input.action==='custom'&&data.phase==='graph-extract'){const p=data.pages[0];return {text:JSON.stringify({nodes:[{key:'a',name:'Research evidence',type:'concept',page:p.page,quote:p.text,certainty:'extracted'},{key:'b',name:'Sample method',type:'method',page:p.page,quote:p.text,certainty:'inferred'}],edges:[{source:'a',target:'b',relation:'describes',page:p.page,quote:p.text,certainty:'ambiguous'}]}),usage:{inputTokens:20,outputTokens:5,totalTokens:25,cachedInputTokens:8,reasoningOutputTokens:2},model:'fixture'};}if(input.action==='custom')return {text:'Synthetic comparison · PDF page 1 · Research evidence sample.',usage:{inputTokens:12,outputTokens:6,totalTokens:18,cachedInputTokens:4,reasoningOutputTokens:2},model:'fixture'};throw Error('Unexpected synthetic AI action');};
+const originalSetPath=app.setPath.bind(app);app.setPath=(key,value)=>originalSetPath(key,key==='userData'?path.join(__dirname,'../work/.smoke-profile-'+process.pid+'-'+Date.now()):value);
 require('./main.cjs');
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 function pdf(){
@@ -21,20 +21,37 @@ function pdf(){
 app.whenReady().then(async()=>{
  try{
   let w;for(let i=0;i<100;i++){w=BrowserWindow.getAllWindows()[0];if(w&&!w.webContents.isLoading())break;await wait(100);}
-  await wait(800);const wc=w.webContents;const run=async js=>{return wc.executeJavaScript('(async()=>{'+(js.includes(';')&&!js.startsWith('(async()=>')?js:'return ('+js+')')+'})()',true)};const checks=[];
+  await wait(800);const wc=w.webContents;wc.debugger.attach('1.3');const run=async js=>{return wc.executeJavaScript('(async()=>{'+(js.includes(';')&&!js.startsWith('(async()=>')?js:'return ('+js+')')+'})()',true)};const checks=[];
   const check=(name,result)=>{if(!result)throw Error(name);checks.push(name);};
   check('independent profile',app.getPath('userData').includes('.smoke-profile-'));
   check('empty library and branding',await run(`document.title.includes('藏經')&&(await store.all()).length===0`));
+  check('default literature tab and recent scope with import mode removed',await run(`document.querySelector('#library-tab-literature').getAttribute('aria-selected')==='true'&&document.querySelector('[data-folder="@recent"]').getAttribute('aria-current')==='true'&&!document.querySelector('#import-mode')&&document.querySelector('.header-import').textContent.includes('匯入文獻')`));
+  await run(`document.querySelector('#library-tab-projects').click()`);
+  check('project tab has a useful empty state and hides literature panel',await run(`!document.querySelector('.project-empty').hidden&&document.querySelector('#library-panel-literature').hidden&&getComputedStyle($('shelf')).display==='none'&&document.querySelector('.project-empty button').textContent==='新增專案'`));
+  await run(`const b=document.querySelector('#library-tab-projects');b.focus();b.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))`);
+  check('tab arrow key switches selection and focus with controlled panel',await run(`const b=document.querySelector('#library-tab-literature');return document.activeElement===b&&b.getAttribute('aria-selected')==='true'&&!document.getElementById(b.getAttribute('aria-controls')).hidden&&document.querySelector('#library-tab-projects').tabIndex===-1`));
+  await run(`document.querySelector('#library-tab-literature').dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}));document.querySelector('#library-tab-projects').dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true}))`);
+  check('Home and End preserve literature default and do not change stored data',await run(`document.activeElement.id==='library-tab-literature'&&(await ReaderData.all('organization')).length===0`));
   check('PDF import',await run(`(await importFiles([new File([Uint8Array.from(atob('${pdf()}'),c=>c.charCodeAt(0))],'Research.pdf')])).length===1`));
   check('PDF duplicate detection',await run(`await importFiles([new File([Uint8Array.from(atob('${pdf()}'),c=>c.charCodeAt(0))],'Research.pdf')]); return records.length===1`));
   check('PDF first-page thumbnail cached',await run(`records[0].cover instanceof Blob&&records[0].cover.size>100`));
   await run(`await openBook(records[0].id)`);await wait(500);
   check('PDF render and page locator',await run(`!!document.querySelector('.pdf-page canvas')&&$('chapter').textContent==='第 1 頁'`));
   check('PDF search',await run(`await webReader.search('Research'); return webReader.toolbar.querySelector('[role=status]').textContent.includes('找到')`));
+  await wait(250);
+  const actualSelect=async()=>{const r=await run(`const n=webReader.article.querySelector('span').firstChild,r=document.createRange();r.setStart(n,0);r.setEnd(n,8);const b=r.getBoundingClientRect();document.addEventListener('contextmenu',e=>{window.lastRealContext={trusted:e.isTrusted};setTimeout(()=>window.lastRealContext.prevented=e.defaultPrevented,0);},{capture:true,once:true});return {x:b.left+1,end:b.right-1,y:b.top+b.height/2}`);await wc.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mousePressed',x:r.x,y:r.y,button:'left',buttons:1,clickCount:1});for(let i=1;i<=4;i++)await wc.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseMoved',x:r.x+(r.end-r.x)*i/4,y:r.y,button:'left',buttons:1});await wc.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseReleased',x:r.end,y:r.y,button:'left',buttons:0,clickCount:1});return r;};
+  const actualRight=async r=>{await wc.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mousePressed',x:(r.x+r.end)/2,y:r.y,button:'right',buttons:2,clickCount:1});await wc.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseReleased',x:(r.x+r.end)/2,y:r.y,button:'right',buttons:0,clickCount:1});await wait(80);};
+  await actualRight(await actualSelect());
+  const nativeContext=await run(`({selection:String(document.getSelection()),event:window.lastRealContext,menu:!!document.querySelector('[role=menu]')})`);console.log(JSON.stringify({nativeContext}));
+  check('trusted PDF drag and right click show three annotation menu items',await run(`window.lastRealContext.trusted&&window.lastRealContext.prevented&&['螢光筆','加底線','文字註釋'].every(label=>document.querySelector('[role=menuitem][aria-label="'+label+'"]'))`));
+  await wc.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowDown',code:'ArrowDown',windowsVirtualKeyCode:40});
+  check('native annotation menu keyboard moves focus',await run(`document.activeElement.getAttribute('aria-label')==='加底線'`));
+  await wc.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+  const nativeClick=async selector=>{const p=await run(`const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}`);await wc.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',buttons:1,clickCount:1});await wc.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',buttons:0,clickCount:1});};
   const selectPdf=`const n=webReader.article.querySelector('span').firstChild;const r=document.createRange();r.setStart(n,0);r.setEnd(n,8);const sel=document.getSelection();sel.removeAllRanges();sel.addRange(r);webReader.article.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:100,clientY:200}));`;
-  await run(selectPdf+`document.querySelector('[role=menuitem][aria-label="加底線"]').click()`);await wait(200);
+  await actualRight(await actualSelect());await wc.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowDown',code:'ArrowDown',windowsVirtualKeyCode:40});await wc.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await wc.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await wait(200);
   check('PDF underline has visible geometry and physical page',await run(`const n=(await ReaderData.all('annotations')).find(n=>n.kind==='underline');return n.page===1&&n.start===0&&n.end===8&&document.querySelector('.cg-annotation-decoration[data-kind=underline] i').getBoundingClientRect().width>10`));
-  await run(selectPdf+`document.querySelector('[role=menuitem][aria-label="文字註釋"]').click()`);await wait(100);
+  await actualRight(await actualSelect());await nativeClick('[role=menuitem][aria-label="文字註釋"]');await wait(100);
   await run(`const d=document.querySelector('dialog[open]');d.querySelector('textarea').value='Synthetic text comment';d.querySelector('[aria-label="套用螢光標記"]').click()`);await wait(200);
   await run(`await webReader.show(0)`);await wait(150);
   check('PDF comment and underline repaint on reopen',await run(`(await ReaderData.all('annotations')).some(n=>n.kind==='comment'&&n.text==='Synthetic text comment'&&n.page===1)&&document.querySelectorAll('.cg-annotation-decoration').length===2`));
@@ -44,6 +61,19 @@ app.whenReady().then(async()=>{
   await run(`await webReader.show(2);document.querySelector('[aria-label="螢光筆"]').click()`);await wait(100);
   check('scan-only page explicitly explains unavailable text annotation',await run(`document.querySelector('dialog[open] blockquote').textContent.includes('無可選取文字層')`));
   await run(`document.querySelector('dialog[open]').close();await webReader.show(0)`);
+  await actualRight(await actualSelect());await nativeClick('[role=menuitem][aria-label="螢光筆"]');await wait(150);
+  check('trusted right-click highlight persists actual PDF quote',await run(`(await ReaderData.all('annotations')).some(n=>n.kind==='highlight'&&n.quote==='Research'&&n.page===1)`));
+  check('three independent icon-only annotation toolbar buttons',await run(`const group=document.querySelector('.annotation-tools');return group.querySelectorAll('button').length===3&&['螢光筆','底線','文字註釋'].every(label=>{const b=group.querySelector('[aria-label="'+label+'"]');return b&&b.title===label&&b.querySelector('svg')&&!b.textContent.trim();})`));
+  for(const [label,type] of [['螢光筆','highlight'],['底線','underline'],['文字註釋','comment']]){await actualSelect();await nativeClick('.annotation-tools [aria-label="'+label+'"]');await wait(100);check('trusted toolbar preserves selection for '+type,await run(`const d=document.querySelector('dialog[open]');return d.querySelector('[aria-label="標註類型"]').value==='${type}'&&d.querySelector('blockquote').textContent==='Research'&&!d.querySelector('[aria-label="套用螢光標記"]').disabled`));if(type==='comment')await run(`document.querySelector('dialog[open] textarea').value='Toolbar synthetic comment'`);await nativeClick('dialog[open] [aria-label="套用螢光標記"]');await wait(150);}
+  await run(`await webReader.show(1)`);await wait(250);await nativeClick('.annotation-tools [aria-label="底線"]');await wait(100);
+  check('page change prevents stale toolbar annotation snapshot',await run(`document.querySelector('dialog[open] [aria-label="套用螢光標記"]').disabled`));
+  await run(`document.querySelector('dialog[open]').close();await webReader.show(0)`);await wait(250);
+  const boundary=await run(`const span=webReader.article.querySelector('span'),r=document.createRange();r.setStart(span,0);r.setEnd(span,span.childNodes.length);const sel=document.getSelection();sel.removeAllRanges();sel.addRange(r);const b=r.getBoundingClientRect();return {x:b.left+1,end:b.right-1,y:b.top+b.height/2}`);await actualRight(boundary);await nativeClick('[role=menuitem][aria-label="文字註釋"]');await wait(100);
+  check('element boundary selection captures full source quote',await run(`document.querySelector('dialog[open] blockquote').textContent==='Research evidence sample.'&&!document.querySelector('dialog[open] [aria-label="套用螢光標記"]').disabled`));
+  await run(`document.querySelector('dialog[open]').close();document.getSelection().removeAllRanges();const n=webReader.article.querySelector('span');const b=n.getBoundingClientRect();document.addEventListener('contextmenu',e=>setTimeout(()=>window.nativeNoSelection={trusted:e.isTrusted,prevented:e.defaultPrevented},0),{capture:true,once:true});window.noSelectionPoint={x:b.left+1,end:b.right-1,y:b.top+b.height/2}`);await actualRight(await run(`window.noSelectionPoint`));
+  check('no-selection right click preserves native context event',await run(`window.nativeNoSelection.trusted&&!window.nativeNoSelection.prevented&&!document.querySelector('[role=menu]')`));await wc.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+  const editorPoint=await run(`const t=document.createElement('textarea');t.id='synthetic-editor';t.value='Synthetic editor';t.style.cssText='position:absolute;left:20px;top:80px;width:200px;height:50px;z-index:20';webReader.article.append(t);t.focus();document.addEventListener('contextmenu',e=>setTimeout(()=>window.nativeEditor={trusted:e.isTrusted,prevented:e.defaultPrevented},0),{capture:true,once:true});const b=t.getBoundingClientRect();return {x:b.left+10,end:b.right-10,y:b.top+20}`);await actualRight(editorPoint);
+  check('editable field right click preserves native context event',await run(`window.nativeEditor.trusted&&!window.nativeEditor.prevented&&!document.querySelector('[role=menu]')`));await wc.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await run(`document.querySelector('#synthetic-editor').remove()`);
   await run(`await PageResearch.open()`);await wait(100);
   check('multi-page preview uses cached text and range validation',await run(`const d=document.querySelector('dialog[open]');d.querySelector('[aria-label="研究頁碼範圍"]').value='4';d.querySelector('[aria-label="研究頁碼範圍"]').dispatchEvent(new Event('input'));return d.querySelector('[role=status]').textContent.includes('頁碼')&&Array.from(d.querySelectorAll('button')).find(b=>b.textContent==='送出指定頁面').disabled`));
   await run(`const d=document.querySelector('dialog[open]');d.querySelector('[aria-label="研究頁碼範圍"]').value='1-3';d.querySelector('[aria-label="研究頁碼範圍"]').dispatchEvent(new Event('input'));d.querySelector('textarea').value='Compare with physical page evidence';Array.from(d.querySelectorAll('button')).find(b=>b.textContent==='送出指定頁面').click()`);await wait(300);
@@ -55,28 +85,34 @@ app.whenReady().then(async()=>{
   await run(`const d=[...document.querySelectorAll('dialog')].find(d=>d.textContent.includes('儲存筆記'));d.querySelector('textarea').value='Synthetic research note';d.querySelector('form').requestSubmit()`);await wait(250);
   check('note retains page and source',await run(`(await ReaderData.all('annotations')).some(n=>n.chapter==='第 1 頁'&&n.bookId===active.id&&n.text==='Synthetic research note')`));
   await run(`document.querySelector('dialog[open]').close(); $('home').click()`);
-  check('EPUB import and conversion',await run(`(async()=>{const z=new JSZip();z.file('mimetype','application/epub+zip');z.file('META-INF/container.xml','<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container" version="1.0"><rootfiles><rootfile full-path="content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');z.file('content.opf','<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">test</dc:identifier><dc:title>研究方法合成文件</dc:title><dc:creator>測試作者</dc:creator><dc:language>zh-Hant</dc:language></metadata><manifest><item id="c" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/></manifest><spine><itemref idref="c"/></spine></package>');z.file('chapter.xhtml','<html xmlns="http://www.w3.org/1999/xhtml"><head><title>研究問題</title></head><body><h1>研究問題</h1><p>這是自製測試文字，檢查原文閱讀與來源標註。</p></body></html>');z.file('nav.xhtml','<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="chapter.xhtml">研究問題</a></li></ol></nav></body></html>');await importFiles([new File([await z.generateAsync({type:'uint8array'})],'Synthetic.epub')]);return records.length===2&&!!records[1].web;})()`));
-  await run(`await openBook(records[1].id,'web')`);
-  check('EPUB web content',await run(`webReader.article.textContent.includes('自製測試文字')`));
-  await run(`const n=webReader.article.querySelector('p').firstChild;const r=document.createRange();r.setStart(n,0);r.setEnd(n,8);const sel=webReader.root.getSelection();sel.removeAllRanges();sel.addRange(r);webReader.article.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:100,clientY:200}));document.querySelector('[role=menuitem][aria-label="螢光筆"]').click()`);await wait(300);
-  check('highlight retains source and chapter',await run(`(await ReaderData.all('annotations')).some(n=>n.kind==='highlight'&&n.bookId===active.id&&n.quote.length===8&&!!n.chapter)`));
+  check('EPUB rejected without storing data',await run(`const before=records.length;const result=await importFiles([new File(['synthetic'],'Synthetic.epub')]);return result.length===0&&records.length===before&&$('status').textContent.includes('只支援 PDF')`));
+  check('second PDF imported',await run(`(await importFiles([new File([Uint8Array.from(atob('${Buffer.concat([Buffer.from(pdf(),'base64'),Buffer.from('\n% synthetic second fixture')]).toString('base64')}'),c=>c.charCodeAt(0))],'Second.pdf')])).length===1`));
+  await run(`await openBook(records[0].id)`);await wait(250);await actualSelect();await run(`await openBook(records[1].id)`);await wait(250);await nativeClick('.annotation-tools [aria-label="底線"]');await wait(100);
+  check('document switch clears old annotation snapshot',await run(`document.querySelector('dialog[open] [aria-label="套用螢光標記"]').disabled`));await run(`document.querySelector('dialog[open]').close();$('home').click()`);
+  await run(`const raw=new TextEncoder().encode('Synthetic legacy bytes').buffer;const id=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',raw))).map(n=>n.toString(16).padStart(2,'0')).join('');await store.put({id,title:'Legacy EPUB fixture',data:raw,sections:1,size:raw.byteLength,opened:Date.now(),added:Date.now(),type:'epub'});records.push(await store.get(id));records[1].author='測試作者';await store.put(records[1]);drawShelf();LegacyDocuments.refresh()`);
+  check('legacy data retained and excluded from readable count',await run(`(await store.all()).length===3&&document.querySelectorAll('.entry').length===2`));
   await run(`$('home').click();document.querySelector('[aria-label="管理分類"]').click()`);await wait(100);
   await run(`const d=[...document.querySelectorAll('dialog')].find(d=>d.textContent.includes('新增分類'));d.querySelector('form input').value='研究方法';d.querySelector('form').requestSubmit()`);await wait(200);
   check('folder persisted',await run(`(await ReaderData.all('organization')).some(o=>o.groups?.some(g=>g.name==='研究方法'))`));
   await run(`document.querySelector('dialog[open]').close();$('search').value='測試作者';drawShelf()`);
   check('author search',await run(`document.querySelectorAll('.entry').length===1`));
   await run(`$('search').value='';drawShelf()`);
-  await run(`document.querySelector('[aria-label="管理研究專案"]').click()`);
+  await run(`document.querySelector('#library-tab-projects').click();document.querySelector('.project-empty button').click()`);
   await run(`const d=document.querySelector('dialog[open]');d.querySelector('form input').value='計畫 A';d.querySelector('form textarea').value='比較研究證據';d.querySelector('form').requestSubmit()`);await wait(150);
   await run(`const d=document.querySelector('dialog[open]');d.querySelector('form input').value='計畫 B';d.querySelector('form').requestSubmit()`);await wait(150);
   await run(`document.querySelector('dialog[open]').close();LibraryExtras.projectAssignment(records[0].id).click()`);
   await run(`document.querySelector('dialog[open] .project-link-row button').click()`);await wait(150);
   await run(`LibraryExtras.projectAssignment(records[0].id).click()`);await wait(100);await run(`document.querySelectorAll('dialog[open] .project-link-row button')[1].click()`);await wait(150);
-  check('same PDF linked to two projects without duplication',await run(`LibraryExtras.summary(records[0].id).projects.length===2&&records.length===2`));
+  check('same PDF linked to two projects without duplication',await run(`LibraryExtras.summary(records[0].id).projects.length===2&&records.filter(r=>r.type==='pdf').length===2`));
   await run(`document.querySelector('[data-project]').click()`);
   check('project scope and category intersection',await run(`document.querySelectorAll('.entry').length===1&&!document.querySelector('[aria-label="專案內文件分類"]').hidden`));
   await run(`document.querySelector('[aria-label="專案內文件分類"]').value='';drawShelf()`);
   check('unclassified project filter preserves document',await run(`document.querySelectorAll('.entry').length===1`));
+  await run(`document.querySelector('#library-tab-literature').click();await document.querySelector('[data-folder="@recent"]').onclick();document.querySelector('#library-tab-projects').click()`);
+  check('tabs restore independent project and literature scopes including unclassified intersection',await run(`document.querySelector('[data-project]').getAttribute('aria-current')==='true'&&document.querySelector('[aria-label="專案內文件分類"]').value===''&&document.querySelectorAll('.entry').length===1&&JSON.parse(localStorage.getItem('cangjing-library-navigation')).literature==='@recent'`));
+  await run(`document.querySelector('#library-tab-literature').click()`);
+  check('return to literature restores recent reading and preserves memberships',await run(`document.querySelector('[data-folder="@recent"]').getAttribute('aria-current')==='true'&&LibraryExtras.summary(records[0].id).projects.length===2&&!document.querySelector('#library-panel-projects').offsetWidth`));
+  await run(`document.querySelector('#library-tab-projects').click()`);
   await run(`ResearchUI.details(records[0].id)`);await wait(100);
   await run(`const d=document.querySelector('dialog[open]');d.querySelector('[aria-label="人工年份"]').value='2026';d.querySelector('[aria-label="文件標籤"]').value='方法、證據';d.querySelector('[aria-label="閱讀狀態"]').value='閱讀中';d.querySelector('form').requestSubmit()`);await wait(150);
   check('manual bibliography tags and reading state persist',await run(`const r=await store.get(records[0].id);return r.bibliography.year==='2026'&&r.tags.length===2&&r.readingState==='閱讀中'`));
@@ -84,9 +120,9 @@ app.whenReady().then(async()=>{
   await run(`document.querySelector('.research-controls button').click()`);
   check('list view preserves thumbnail aspect ratio',await run(`document.body.classList.contains('document-list')&&document.querySelector('.pdf-document img').naturalHeight>document.querySelector('.pdf-document img').naturalWidth`));
   await run(`document.querySelector('.research-controls button').click()`);
-  check('backup binary and annotation roundtrip',await run(`const bytes=await CangjingBackup.encode();const snapshot=await CangjingBackup.decode(bytes);return snapshot.books.length===2&&snapshot.books.some(r=>r.type==='pdf'&&r.cover instanceof Blob)&&snapshot.annotations.length>=2&&snapshot.organization.some(r=>r.id==='project-links')`));
+  check('backup binary and annotation roundtrip',await run(`const bytes=await CangjingBackup.encode();const snapshot=await CangjingBackup.decode(bytes);return snapshot.books.length===3&&snapshot.books.some(r=>r.type==='pdf'&&r.cover instanceof Blob)&&snapshot.annotations.length>=2&&snapshot.organization.some(r=>r.id==='project-links')`));
   await run(`Array.from(document.querySelectorAll('.research-controls button')).find(b=>b.textContent==='專案筆記').click()`);await wait(100);
-  await run(`const d=document.querySelector('dialog[open]');d.querySelector('[aria-label="專案筆記內容"]').value='跨文件方法比較';d.querySelector('[aria-label="原文引文"]').value='Research evidence sample.';Array.from(d.querySelectorAll('button')).find(b=>b.textContent==='加入文件證據').click();d.querySelector('[aria-label="來源文件"]').selectedIndex=1;d.querySelector('[aria-label="原文引文"]').value='自製測試文字';Array.from(d.querySelectorAll('button')).find(b=>b.textContent==='加入文件證據').click();d.querySelector('form').requestSubmit()`);await wait(150);
+  await run(`const d=document.querySelector('dialog[open]');d.querySelector('[aria-label="專案筆記內容"]').value='跨文件方法比較';d.querySelector('[aria-label="原文引文"]').value='Research evidence sample.';Array.from(d.querySelectorAll('button')).find(b=>b.textContent==='加入文件證據').click();d.querySelector('[aria-label="來源文件"]').selectedIndex=1;d.querySelector('[aria-label="原文引文"]').value='Second methods evidence.';Array.from(d.querySelectorAll('button')).find(b=>b.textContent==='加入文件證據').click();d.querySelector('form').requestSubmit()`);await wait(150);
   check('project note links two distinct documents and exports Markdown',await run(`const n=(await ReaderData.all('annotations')).find(n=>n.kind==='project-note');return n.evidence.length===2&&(await ProjectNotes.markdown(n.projectId)).includes('Research evidence sample.')`));
   await run(`document.querySelector('dialog[open]').close();await KnowledgeUI.open()`);await wait(100);
   check('knowledge graph starts independently disabled',await run(`!document.querySelector('dialog[open]').textContent.includes('停用知識圖萃取')&&(await desktopReader.knowledgeStatus()).enabled===false`));
@@ -97,6 +133,9 @@ app.whenReady().then(async()=>{
   check('knowledge node selection shows physical page quote and neighbors',await run(`const d=document.querySelector('.knowledge-dialog aside');return d.textContent.includes('第 1 頁')&&d.textContent.includes('Research evidence sample.')&&d.textContent.includes('Sample method')`));
   await run(`const d=document.querySelector('.knowledge-dialog');d.querySelector('[aria-label="知識確定性"]').value='extracted';d.querySelector('[aria-label="知識確定性"]').dispatchEvent(new Event('change'))`);
   check('knowledge certainty filter affects displayed nodes',await run(`document.querySelector('.knowledge-dialog [role=status]').textContent.includes('1 個符合節點')`));
+  await run(`const d=document.querySelector('.knowledge-dialog .usage-component details');d.open=true;d.querySelector('summary').focus()`);
+  await run(`await KnowledgeUI.refresh()`);
+  check('readable usage detail retains focus and open state across status refresh',await run(`const d=document.querySelector('.knowledge-dialog .usage-component details');return d.open&&document.activeElement===d.querySelector('summary')&&d.querySelector('table th').textContent==='工作'&&!d.textContent.includes('totalTokens')&&!document.querySelector('.knowledge-dialog').textContent.includes('共用 CLI 排程')`));
   await run(`const d=document.querySelector('.knowledge-dialog');d.querySelector('[aria-label="知識確定性"]').value='';d.querySelector('[aria-label="知識圖範圍"]').value='project:'+LibraryExtras.projects()[0].id;d.querySelector('[aria-label="知識圖範圍"]').dispatchEvent(new Event('change'))`);
   check('knowledge project scope follows shared document membership',await run(`document.querySelector('.knowledge-dialog [role=status]').textContent.includes('2 個符合節點')`));
   await run(`const d=document.querySelector('.knowledge-dialog');d.querySelector('[aria-label="知識確定性"]').value='';d.querySelector('[aria-label="知識確定性"]').dispatchEvent(new Event('change'));d.close()`);
@@ -120,24 +159,32 @@ app.whenReady().then(async()=>{
   await run(`document.querySelector('dialog[open]').close()`);
   await run(`document.querySelector('[aria-label="管理研究專案"]').click()`);await wait(100);
   await run(`window.confirm=()=>true;document.querySelector('dialog[open] [aria-label="刪除研究專案"]').click()`);await wait(150);
-  check('deleting project preserves documents and remaining membership',await run(`records.length===2&&LibraryExtras.summary(records[0].id).projects.length===1`));
+  check('deleting project preserves documents and remaining membership',await run(`records.filter(r=>r.type==='pdf').length===2&&LibraryExtras.summary(records[0].id).projects.length===1`));
   await run(`document.querySelector('dialog[open]').close()`);
-  check('transactional backup restore retains binary thumbnails and project notes',await run(`const snapshot=await CangjingBackup.decode(await CangjingBackup.encode());await LibraryStore.restore({books:[],positions:[],annotations:[],organization:[]});await LibraryStore.restore(snapshot);return (await store.all()).length===2&&(await ReaderData.all('annotations')).some(n=>n.kind==='project-note')`));
+  check('transactional backup restore retains binary thumbnails and project notes',await run(`const snapshot=await CangjingBackup.decode(await CangjingBackup.encode());await LibraryStore.restore({books:[],positions:[],annotations:[],organization:[]});await LibraryStore.restore(snapshot);return new TextDecoder().decode((await store.all()).find(r=>r.type==='epub').data)==='Synthetic legacy bytes'&&(await store.all()).length===3&&(await ReaderData.all('annotations')).some(n=>n.kind==='project-note')`));
   check('backup restores graph and custom research while disabling automatic sends',await run(`const snapshot=await CangjingBackup.decode(await CangjingBackup.encode());await desktopReader.backupRestoreResearch(snapshot.research);return !(await desktopReader.knowledgeStatus()).enabled&&(await desktopReader.knowledgeStatus()).jobs[0].graph.nodes.length===2&&(await desktopReader.pageTasks())[0].coveredPages.join(',')==='1,2'`));
   await run(`document.querySelector('[aria-label="篩選閱讀狀態"]').value='閱讀中';drawShelf()`);
   check('reading state filter',await run(`document.querySelectorAll('.entry').length===1`));
   await run(`document.querySelector('.research-scope button').click()`);
   check('clear resets scope and all filters',await run(`document.querySelectorAll('.entry').length===2&&document.querySelector('[aria-label="篩選閱讀狀態"]').value===''`));
-  wc.debugger.attach('1.3');
+
   for(const [width,height] of [[390,844],[768,1024],[1440,900],[1920,1080],[2560,1080]]){
    await wc.debugger.sendCommand('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await wait(250);
    check(`no horizontal overflow ${width}`,await run(`document.documentElement.scrollWidth<=innerWidth`));
    const shot=await wc.debugger.sendCommand('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await fs.writeFile(path.join(__dirname,`../work/viewport-${width}.png`),Buffer.from(shot.data,'base64'));
+   if(width===390)await run(`$('folders-toggle').click()`);
+   check(`navigation tab target and panel fit ${width}`,await run(`const b=document.querySelector('#library-tab-literature');return b.getBoundingClientRect().height>=44&&document.querySelector('#library-panel-projects').hidden&&document.querySelector('.folder-sidebar').scrollWidth<=document.querySelector('.folder-sidebar').clientWidth`));
+   const navShot=await wc.debugger.sendCommand('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await fs.writeFile(path.join(__dirname,`../work/navigation-${width}.png`),Buffer.from(navShot.data,'base64'));
+   await run(`document.querySelector('#library-tab-projects').click()`);
+   const projectShot=await wc.debugger.sendCommand('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await fs.writeFile(path.join(__dirname,`../work/projects-${width}.png`),Buffer.from(projectShot.data,'base64'));
+   await run(`document.querySelector('#library-tab-literature').click()`);if(width===390)await run(`$('folders-toggle').click()`);
   }
-  await run(`await KnowledgeUI.open()`);
+  check('legacy EPUB excluded from sidebar counts',await run(`document.querySelector('[data-folder="*"] small').textContent==='2'&&document.querySelector('[data-folder=""] small').textContent==='2'`));
+  await run(`await KnowledgeUI.open();document.querySelector('.knowledge-dialog .usage-component details').open=true`);
   for(const [width,height] of [[390,844],[768,1024],[1440,900]]){
    await wc.debugger.sendCommand('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await wait(300);await run(`await KnowledgeUI.refresh()`);await wait(100);
    const shot=await wc.debugger.sendCommand('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await fs.writeFile(path.join(__dirname,`../work/knowledge-${width}.png`),Buffer.from(shot.data,'base64'));
+   await run(`document.querySelector('.knowledge-dialog .usage-component').scrollIntoView({block:'start'})`);await wait(100);const usageShot=await wc.debugger.sendCommand('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await fs.writeFile(path.join(__dirname,`../work/usage-${width}.png`),Buffer.from(usageShot.data,'base64'));
    const metrics=await run(`const d=document.querySelector('.knowledge-dialog');return {scroll:d.scrollWidth,client:d.clientWidth,width:d.getBoundingClientRect().width,viewport:innerWidth,canvas:d.querySelector('canvas')?.width,overflows:Array.from(d.querySelectorAll('*')).filter(n=>n.scrollWidth>n.clientWidth+2).map(n=>[n.tagName,n.className,n.scrollWidth,n.clientWidth]).slice(0,10)}`);
    if(metrics.scroll>metrics.client||metrics.width>metrics.viewport||!metrics.canvas)console.log(JSON.stringify(metrics));
    check(`knowledge graph fits ${width}`,metrics.scroll<=metrics.client&&metrics.width<=metrics.viewport&&metrics.canvas>0);
@@ -149,7 +196,12 @@ app.whenReady().then(async()=>{
    check(`PDF reader fits ${width}`,await run(`document.documentElement.scrollWidth<=innerWidth&&!!document.querySelector('.pdf-page canvas')`));
    const shot=await wc.debugger.sendCommand('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await fs.writeFile(path.join(__dirname,`../work/reader-${width}.png`),Buffer.from(shot.data,'base64'));
   }
-  check('no renderer console errors',errors.length===0);
+  await run(`$('home').click();document.querySelector('#library-tab-literature').click();await document.querySelector('[data-folder="@recent"]').onclick();document.querySelector('#library-tab-projects').click()`);
+  wc.reload();await wait(1000);
+  check('navigation preference and both tab scopes survive reload',await run(`const n=JSON.parse(localStorage.getItem('cangjing-library-navigation'));return document.querySelector('#library-tab-projects').getAttribute('aria-selected')==='true'&&n.literature==='@recent'&&document.querySelector('[data-project][aria-current=true]')&&records.filter(r=>r.type==='pdf').length===2`));
+  await run(`document.querySelector('#library-tab-literature').click()`);
+  check('saved literature scope restored after reload',await run(`document.querySelector('[data-folder="@recent"]').getAttribute('aria-current')==='true'`));
+  if(errors.length)console.log(JSON.stringify(errors));check('no renderer console errors',errors.length===0);
   await fs.writeFile(path.join(__dirname,'../work/smoke-results.json'),JSON.stringify({checks,errors},null,2));console.log(JSON.stringify({checks,errors}));app.exit(0);
  }catch(e){const w=BrowserWindow.getAllWindows()[0];if(w)console.error(await w.webContents.executeJavaScript('document.getElementById("status").textContent'));console.error(e.stack);app.exit(1);}
 });

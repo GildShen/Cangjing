@@ -9,8 +9,8 @@
  const panel=node('section');panel.id='ai-panel';panel.hidden=true;panel.setAttribute('aria-label','AI 閱讀助理');
  const header=node('div');header.className='ai-heading';header.append(node('h2','AI 閱讀助理'),button('settings','AI 設定',configure),button('x','關閉 AI 側欄',()=>{panel.hidden=true;}));
  const location=node('p'),quote=node('blockquote'),message=node('p'),answer=node('div');message.setAttribute('role','status');answer.className='ai-answer';answer.setAttribute('aria-live','polite');
- const usage=node('p');usage.className='ai-usage';usage.setAttribute('aria-label','Token 用量');
- function showUsage(value){usage.replaceChildren();if(!value){usage.textContent='Token 用量：未回報（不代表零消耗）';return;}usage.append(node('span','Token · 輸入 '+value.input.toLocaleString()+' · 輸出 '+value.output.toLocaleString()+' · 合計 '+value.total.toLocaleString()));const details=[];if(value.cached!==null)details.push('輸入含快取 '+value.cached.toLocaleString());if(value.reasoning!==null)details.push('輸出含推理 '+value.reasoning.toLocaleString());if(details.length)usage.append(node('br'),node('small',details.join(' · ')));}
+ const usage=node('div');usage.className='ai-usage';usage.setAttribute('aria-label','Token 用量');
+ function showUsage(value,model){UsageUI.updateUsage(usage,[{usage:value,at:Date.now(),model:model||result?.model}]);}
  const commands=node('div');commands.className='ai-actions';
  for(const [action,label] of Object.entries(actions)){const b=button(action==='translate'?'languages':action==='explain'?'message-circle':'list',label,()=>run(action));b.append(node('span',label));commands.append(b);}
  const cancel=button('square','取消 AI 工作',async()=>{cancel.disabled=true;message.textContent='正在取消…';await api.aiCancel();});cancel.hidden=true;
@@ -47,7 +47,7 @@
   source={...source,action};const snapshot=structuredClone(source);running=true;controls();
   try{const info=await api.aiInfo();if(!consented.has(info.provider)){if(!confirm('將選取文字傳送至 '+(info.provider==='openai-api'?'OpenAI API（按 API 用量另外計費）':'Codex CLI（使用 Codex 帳戶額度）')+'。是否繼續？'))return;consented.add(info.provider);}
    result=null;answer.textContent='';usage.textContent='Token 用量：等待服務回報';copy.disabled=true;save.disabled=true;message.textContent='正在'+actions[action]+'…';
-   const response=await api.aiRun({action,text:snapshot.quote});showUsage(response.usage);if(!response.ok)throw Error(response.error);result={...response,source:snapshot};answer.textContent=response.text;message.textContent='完成 · '+response.model;copy.disabled=false;save.disabled=false;}
+   const response=await api.aiRun({action,text:snapshot.quote});showUsage(response.usage,response.model);if(!response.ok)throw Error(response.error);result={...response,source:snapshot};answer.textContent=response.text;message.textContent='完成';copy.disabled=false;save.disabled=false;}
   catch(e){message.textContent=e.message;if(usage.textContent==='Token 用量：等待服務回報')showUsage(null);}
   finally{running=false;controls();}
  }

@@ -42,7 +42,7 @@
 ```javascript
 CangjingPlugin.onCommand('summarize-library', async () => {
   const documents = await CangjingPlugin.getDocuments();
-  return documents.map(d => `${d.title} · ${d.type || 'EPUB'}`).join('\n');
+  return documents.map(d => `${d.title} · ${d.type || 'PDF'}`).join('\n');
 });
 ```
 
