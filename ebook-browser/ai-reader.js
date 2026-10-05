@@ -52,7 +52,7 @@
   finally{running=false;controls();}
  }
  window.ReaderAI={start(action,selection){
-  panel.hidden=false;if(running){message.textContent='已有 AI 工作執行中，請先取消或等待完成';return;}
+  if($('document-summary'))$('document-summary').hidden=true;panel.hidden=false;if(running){message.textContent='已有 AI 工作執行中，請先取消或等待完成';return;}
   if(selection.quote.length>20000){message.textContent='一次最多處理 20,000 字，請縮小選取範圍';return;}
   source=structuredClone(selection);source.action=action;result=null;answer.textContent='';usage.textContent='';location.textContent=source.title+' · '+source.chapter;quote.textContent=source.quote;copy.disabled=true;save.disabled=true;controls();run(action);
  }};

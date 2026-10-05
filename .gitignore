@@ -52,3 +52,7 @@
 !/desktop/skills.test.cjs
 
 !/desktop/mindmap.test.cjs
+
+!/desktop/copy-registry.cjs
+!/desktop/toc-queue.cjs
+!/desktop/reading.test.cjs

@@ -57,7 +57,7 @@ async function importFiles(files){
       const id=Array.from(new Uint8Array(hash),n=>n.toString(16).padStart(2,'0')).join('');
       if(records.some(r=>r.id===id)){duplicates++;importedIds.push(id);continue;}
       if(/\.pdf$/i.test(file.name)){
-        const metadata=await PdfReader.metadata(data);const record={id,type:'pdf',title:metadata.title||file.name.replace(/\.pdf$/i,''),author:metadata.author||'',sections:metadata.sections,coverPage:1,data,size:file.size,added:Date.now(),opened:0};
+        const metadata=await PdfReader.metadata(data);const record={id,type:'pdf',importName:file.name,title:metadata.title||file.name.replace(/\.pdf$/i,''),author:metadata.author||'',sections:metadata.sections,coverPage:1,data,size:file.size,added:Date.now(),opened:0};
         record.metadata={title:metadata.title||'',authors:metadata.author||''};
         try{record.cover=await PdfReader.preview(data);}catch(e){record.previewError=e.message;}
         await store.put(record);records.push(record);imported++;importedIds.push(id);window.ResearchUI?.imported(record);continue;
@@ -80,7 +80,7 @@ $('files').onchange=e=>importFiles(Array.from(e.target.files));$('files').accept
 $('home').onclick=()=>{if(busy)return;++generation;if(webReader){webReader.destroy();webReader=null;}window.ReaderHighlights?.detach?.();active=null;document.dispatchEvent(new CustomEvent('reader-document-changed'));$('library').hidden=false;$('reader').hidden=true;$('book-title').textContent='';drawShelf();status();};
 $('search').oninput=drawShelf;$('sort').onchange=drawShelf;$('theme').onclick=()=>{settings.dark=!settings.dark;theme();saveSettings();};$('toc-toggle').onclick=()=>toggleOutline(document.body.classList.contains('hide-outline'));$('prev').onclick=()=>webReader?.show(webReader.index-1);$('next').onclick=()=>webReader?.show(webReader.index+1);addEventListener('pagehide',()=>webReader?.notify());
 document.addEventListener('dragover',e=>e.preventDefault());document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files.length)importFiles(Array.from(e.dataTransfer.files));});theme();icons();
-store.all().then(data=>{records=data;drawShelf();startDesktopBridge();window.LegacyDocuments?.refresh();}).catch(e=>status('無法開啟本機文獻庫：'+e.message));
+store.all().then(data=>{records=data;window.libraryReady=true;window.ProjectCopies?.changed();drawShelf();startDesktopBridge();window.LegacyDocuments?.refresh();}).catch(e=>status('無法開啟本機文獻庫：'+e.message));
 function startDesktopBridge(){
   if(!window.desktopReader)return;
   document.querySelector('.old')?.remove();

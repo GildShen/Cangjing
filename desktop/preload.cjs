@@ -1,6 +1,21 @@
 const {contextBridge,ipcRenderer}=require('electron');
 if(process.isMainFrame){
   contextBridge.exposeInMainWorld('desktopReader',{
+    tocStatus:()=>ipcRenderer.invoke('toc:status'),
+    tocEnqueue:input=>ipcRenderer.invoke('toc:enqueue',input),
+    tocCancel:id=>ipcRenderer.invoke('toc:cancel',id),
+    tocRetry:id=>ipcRenderer.invoke('toc:retry',id),
+    copiesStatus:()=>ipcRenderer.invoke('copies:status'),
+    copiesSync:input=>ipcRenderer.invoke('copies:sync',input),
+    copiesMissingSources:()=>ipcRenderer.invoke('copies:missing-sources'),
+    copiesBeginSource:(id,size)=>ipcRenderer.invoke('copies:begin-source',id,size),
+    copiesSourceChunk:(id,offset,bytes)=>ipcRenderer.invoke('copies:source-chunk',id,offset,bytes),
+    copiesFinishSource:id=>ipcRenderer.invoke('copies:finish-source',id),
+    copiesCancelSource:id=>ipcRenderer.invoke('copies:cancel-source',id),
+    copiesSourceFailed:(id,message)=>ipcRenderer.invoke('copies:source-failed',id,message),
+    copiesRetry:id=>ipcRenderer.invoke('copies:retry',id),
+    copiesChooseFolder:id=>ipcRenderer.invoke('copies:choose-folder',id),
+    copiesOpenFolder:id=>ipcRenderer.invoke('copies:open-folder',id),
     skillsStatus:()=>ipcRenderer.invoke('skills:status'),
     skillsChange:input=>ipcRenderer.invoke('skills:change',input),
     skillsImport:kind=>ipcRenderer.invoke('skills:import',kind),
