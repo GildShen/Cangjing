@@ -131,8 +131,8 @@ else{
     ]));
     await window.loadURL(origin);
     if(verifyStartup){
-      const result=await window.webContents.executeJavaScript("(async()=>{for(let n=0;n<100&&!window.libraryReady;n++)await new Promise(r=>setTimeout(r,50));return {title:document.title,ready:window.libraryReady===true,modules:!!(window.PdfWheel&&window.DocumentSummary&&window.SummaryUI&&window.TocUI&&window.ProjectCopies),bridge:!!window.desktopReader,empty:(await LibraryStore.all()).length===0,copies:(await desktopReader.copiesStatus()).jobs.length,toc:(await desktopReader.tocStatus()).jobs.length,node:typeof require,summary:!!document.querySelector('#document-summary')}})()");
-      const passed=result.ready&&result.modules&&result.bridge&&result.empty&&result.summary&&result.node==='undefined'&&result.copies===0&&result.toc===0;
+      const result=await window.webContents.executeJavaScript("(async()=>{for(let n=0;n<100&&!window.libraryReady;n++)await new Promise(r=>setTimeout(r,50));return {title:document.title,ready:window.libraryReady===true,modules:!!(window.ImradReading&&window.StudyBackgrounds&&window.PdfWheel&&window.DocumentSummary&&window.SummaryUI&&window.TocUI&&window.ProjectCopies),bridge:!!window.desktopReader,empty:(await LibraryStore.all()).length===0,copies:(await desktopReader.copiesStatus()).jobs.length,toc:(await desktopReader.tocStatus()).jobs.length,node:typeof require,summary:!!document.querySelector('#document-summary'),defaultSkill:(await desktopReader.skillsStatus()).defaults.research}})()");
+      const passed=result.ready&&result.modules&&result.bridge&&result.empty&&result.summary&&result.node==='undefined'&&result.copies===0&&result.toc===0&&result.defaultSkill==='imrad-reading';
       console.log(JSON.stringify({verification:'packaged-startup',packaged:app.isPackaged,version:app.getVersion(),isolatedProfile:verificationProfile,...result,passed}));app.exit(passed?0:1);
     }
   }).catch(error=>{if(verifyStartup){console.error(error.stack);app.exit(1);}else{dialog.showErrorBox('藏經啟動失敗',error.message);app.quit();}});

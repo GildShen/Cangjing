@@ -56,3 +56,5 @@
 !/desktop/copy-registry.cjs
 !/desktop/toc-queue.cjs
 !/desktop/reading.test.cjs
+
+!/desktop/imrad.test.cjs

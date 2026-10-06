@@ -1,8 +1,10 @@
 # 藏經 Cangjing
 
-本機 PDF 研究文件整理工具，基於 [藏書 Cangshu](https://github.com/GildShen/cangshu)（MIT，原作者 GildShen）。目前版本 0.4.0，主要驗證平台為 Windows。
+本機 PDF 研究文件整理工具，基於 [藏書 Cangshu](https://github.com/GildShen/cangshu)（MIT，原作者 GildShen）。目前版本 0.5.0，主要驗證平台為 Windows。
 
 ## 功能
+
+0.5.0 將 `imrad-reading` 設為內建預設研究 Skill，全文預讀、摘要側欄與心智圖共用 IMRaD 功能摘要、可溯源研究邏輯、經選擇及確認的 Paper ↔ My Study 三層結果。Results 與 Discussion 分開，非實驗文章按實際內容；研究背景不自動帶入，缺資料明示。舊分析、指令快照、自訂 Skills 與共同規則保留，不自動重分析。詳見 [IMRaD 閱讀](docs/imrad-reading.md)。
 
 0.4.0 新增 PDF 邊界滾輪翻頁（可關閉）、只讀既有結果的全文摘要側欄、手動且保留來源的 AI 目錄，以及每個專案的獨立實體 PDF 副本。目錄選擇會先預覽再確認；還原備份後需重新確認，移除關聯不刪外部副本。詳見 [閱讀與專案副本](docs/reading-and-copies.md)。
 
@@ -52,7 +54,7 @@ npm run build  # Windows 可執行資料夾
 npm run dist   # Windows NSIS 安裝檔
 ```
 
-輸出位於 `outputs/desktop-release/`；可直接執行完整 `win-unpacked/Cangjing.exe` 資料夾，或執行 `Cangjing-Setup-0.4.0.exe` 安裝。安裝包未簽章。儲存庫不提交安裝包、node_modules、資料檔或測試截圖。
+輸出位於 `outputs/desktop-release/`；可直接執行完整 `win-unpacked/Cangjing.exe` 資料夾，或執行 `Cangjing-Setup-0.5.0.exe` 安裝。安裝包未簽章。儲存庫不提交安裝包、node_modules、資料檔或測試截圖。
 
 版本鎖定於 `desktop/package-lock.json`。UI 測試使用自製 PDF 與舊版資料相容測試、獨立測試 profile 與 Chromium viewport，產物放在未追蹤的 `work/`，不呼叫真實 AI。若已有相同版本 Electron，可用 `CANGJING_ELECTRON_BINARY` 指定 UI 測試執行檔。建置工具鏈仍有 npm audit 告警，詳見 [驗證紀錄](docs/verification.md)。
 

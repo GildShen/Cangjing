@@ -1,0 +1,20 @@
+'use strict';
+(()=>{
+ const el=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};let backgrounds=[];
+ function validate(rows){if(!Array.isArray(rows)||rows.length>100)throw Error('研究背景資料不正確');const seen=new Set();return rows.map(r=>{if(!r||typeof r.id!=='string'||! /^[a-zA-Z0-9-]{1,80}$/.test(r.id)||seen.has(r.id)||typeof r.name!=='string'||!r.name.trim()||r.name.length>120||typeof r.text!=='string'||!r.text.trim()||r.text.length>3000||JSON.stringify(r.text).length>3500)throw Error('研究背景資料不正確');seen.add(r.id);return {id:r.id,name:r.name,text:r.text};});}
+ const ready=ReaderData.all('organization').then(rows=>{backgrounds=validate(rows.find(r=>r.id==='study-backgrounds')?.backgrounds||[]);}).catch(e=>status('研究背景載入失敗：'+e.message));
+ async function save(row){await ready;const next=validate([...backgrounds.filter(r=>r.id!==row.id),row]);await ReaderData.put('organization',{id:'study-backgrounds',backgrounds:next});backgrounds=next;return row;}
+ async function remove(id){const next=backgrounds.filter(r=>r.id!==id);await ReaderData.put('organization',{id:'study-backgrounds',backgrounds:next});backgrounds=next;}
+ async function controls(record,job,enqueue){await ready;const host=el('section');host.className='study-background-controls';host.append(el('h3','Paper ↔ My Study'),el('p',job?.studyBackground?'既有分析背景：'+job.studyBackground.name+'。保留原快照；新的映射須重新選擇並確認。':'缺少已選擇並確認的研究背景，尚未映射。'));
+ const select=el('select');select.setAttribute('aria-label','選擇我的研究背景');const name=el('input');name.maxLength=120;name.setAttribute('aria-label','研究背景名稱');const text=el('textarea');text.maxLength=3000;text.rows=7;text.setAttribute('aria-label','我的研究背景內容');text.placeholder='填寫研究問題、理論／構念、方法與情境、限制；僅提供您已確定的資料。';const preview=el('pre'),label=el('label'),confirm=el('input');confirm.type='checkbox';confirm.setAttribute('aria-label','確認本次研究背景');label.append(confirm,document.createTextNode('我已核對上述背景，確認將此快照用於本文件映射並送至 Codex。'));const output=el('p');output.setAttribute('role','status');const store=el('button','儲存研究背景'),del=el('button','刪除所選背景'),map=el('button','以確認背景重新分析並映射');map.disabled=true;
+ function options(id=''){select.replaceChildren();const empty=el('option','請明確選擇背景（不自動帶入）');empty.value='';select.append(empty);for(const b of backgrounds){const o=el('option',b.name);o.value=b.id;select.append(o);}select.value=id;}
+ function reset(){confirm.checked=false;preview.textContent='';map.disabled=true;}
+ function chosen(){return backgrounds.find(b=>b.id===select.value);}
+ select.onchange=()=>{reset();const b=chosen();name.value=b?.name||'';text.value=b?.text||'';preview.textContent=b?b.name+'\n'+b.text:'';del.disabled=!b;};name.oninput=text.oninput=()=>{reset();output.textContent='背景已變更，請先儲存、重新選擇並確認。';};confirm.onchange=()=>{const b=chosen();map.disabled=!confirm.checked||!b||b.name!==name.value||b.text!==text.value||!ResearchUI.status().enabled||['waiting','running'].includes(ResearchUI.status().jobs.find(j=>j.id===record.id)?.state);};
+ store.onclick=async()=>{store.disabled=true;try{const b={id:select.value||crypto.randomUUID(),name:name.value.trim(),text:text.value.trim()};await save(b);options();reset();output.textContent='已儲存，請從選單明確選擇背景並確認本次使用。';del.disabled=true;}catch(e){output.textContent=e.message;}finally{store.disabled=false;}};
+ del.onclick=async()=>{try{if(!chosen())return;await remove(select.value);options();name.value='';text.value='';reset();del.disabled=true;output.textContent='已刪除背景；舊分析與其背景快照保留。';}catch(e){output.textContent=e.message;}};
+ map.onclick=async()=>{const b=chosen();if(!confirm.checked||!b||b.name!==name.value||b.text!==text.value)return;map.disabled=true;try{const snapshot=ImradReading.background({...b,confirmed:true,confirmedAt:Date.now()});await enqueue(snapshot);}catch(e){output.textContent=e.message;confirm.checked=false;}};
+ options();del.disabled=true;host.append(select,el('label','研究背景名稱'),name,el('label','研究背景內容'),text,store,del,el('p','先儲存，再選擇並核對預覽。背景不會加入一般自動預讀。重新分析會保留舊分析並可能增加帳戶用量；請先啟用全文分析。'),preview,label,map,output);return host;
+ }
+ window.StudyBackgrounds={ready,validate,save,remove,list:()=>structuredClone(backgrounds),controls};
+})();
