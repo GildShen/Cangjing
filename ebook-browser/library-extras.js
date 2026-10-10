@@ -60,7 +60,7 @@
     const row={id,category:value};await db.put('organization',row);
     assignments=assignments.filter(a=>a.id!==id);assignments.push(row);drawShelf();
   }
-  window.LibraryExtras={
+  window.LibraryExtras={projectIds:id=>[...(links[id]||[])],
     isReady:()=>navigationLoaded,
     revealImported:()=>{if(filter.value==='@recent')filter.value='*';},
     projects:()=>projects.map(p=>({...p})),

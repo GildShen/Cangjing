@@ -58,3 +58,11 @@
 !/desktop/reading.test.cjs
 
 !/desktop/imrad.test.cjs
+
+!/desktop/evidence-workbench.cjs
+!/desktop/evidence.test.cjs
+!/desktop/workbench-ui.cjs
+!/desktop/workbench-ui-runner.cjs
+!/desktop/semantic-eval.cjs
+!/.github/
+!/desktop/backup.test.cjs

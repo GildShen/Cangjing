@@ -1,6 +1,6 @@
 {
   "name": "cangjing-reader",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "license": "MIT",
   "description": "Local PDF research library with source-linked annotations",
   "author": "Cangjing contributors; based on Cangshu by GildShen",
@@ -10,12 +10,12 @@
     "start": "electron .",
     "icons": "node make-icon.cjs",
     "dist": "node build-pdf.cjs && npm run icons && electron-builder --win nsis --x64",
-    "test": "node --test test.cjs ai.test.cjs openai.test.cjs research.test.cjs workflow.test.cjs skills.test.cjs mindmap.test.cjs reading.test.cjs imrad.test.cjs",
+    "test": "node --test test.cjs ai.test.cjs openai.test.cjs research.test.cjs workflow.test.cjs skills.test.cjs mindmap.test.cjs reading.test.cjs imrad.test.cjs evidence.test.cjs backup.test.cjs",
     "build": "node build-pdf.cjs && npm run icons && electron-builder --win --dir --x64",
-    "test:ui": "node ui-smoke-runner.cjs"
+    "test:ui": "node workbench-ui-runner.cjs",
+    "test:ui:workbench": "node workbench-ui-runner.cjs"
   },
   "devDependencies": {
-    "cytoscape": "3.34.3",
     "electron": "44.3.0",
     "electron-builder": "26.15.3",
     "esbuild": "^0.28.2",
@@ -62,7 +62,16 @@
           "!README.md",
           "!converter.js",
           "!export.js",
-          "!vendor/epub.min.js"
+          "!vendor/epub.min.js",
+          "!vendor/cytoscape/**",
+          "!knowledge-ui.js",
+          "!mindmap-model.js",
+          "!mindmap-view.js",
+          "!mindmap.css",
+          "!knowledge.css",
+          "!document-summary.js",
+          "!summary-ui.js",
+          "!toc-ui.js"
         ]
       },
       {
@@ -78,7 +87,8 @@
         "filter": [
           "**/*.md"
         ]
-      }
+      },
+      "evidence-workbench.cjs"
     ],
     "win": {
       "icon": "icon.ico",

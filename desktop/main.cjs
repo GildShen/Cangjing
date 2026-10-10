@@ -5,6 +5,7 @@ const {pathToFileURL}=require('node:url');
 const {assetPath}=require('./paths.cjs');
 const {AiService}=require('./ai-service.cjs');
 const {ResearchQueue}=require('./research-queue.cjs');
+const {EvidenceWorkbench}=require('./evidence-workbench.cjs');
 const {TocQueue}=require('./toc-queue.cjs');
 const {CopyRegistry,safeDirectory,projectId}=require('./copy-registry.cjs');
 const {CliScheduler}=require('./cli-scheduler.cjs');
@@ -54,20 +55,24 @@ else{
     const scheduler=new CliScheduler(),directory=app.getPath('userData');
     const skills=new SkillManager(directory,path.join(__dirname,app.isPackaged?'research-skills':'../research-skills'));await skills.init();
     const ai=new AiService(directory,{safeStorage,scheduler});
-    const queue=new ResearchQueue(directory,{skills,service:new AiService(directory,{safeStorage,scheduler,priority:'background'})});
+    const queue=new ResearchQueue(directory,{archival:true,skills,service:new AiService(directory,{safeStorage,scheduler,priority:'background'})});
     const pageTasks=new PageTasks(directory,{skills,service:new AiService(directory,{safeStorage,scheduler})});
     const knowledge=new KnowledgeQueue(directory,{skills,service:new AiService(directory,{safeStorage,scheduler,priority:'background'})});
     const tocQueue=new TocQueue(directory,{skills,service:new AiService(directory,{safeStorage,scheduler})}),copies=new CopyRegistry(directory);await tocQueue.load();await copies.load();
     await knowledge.load();
     await pageTasks.load();
     await queue.load();
+    const workbench=new EvidenceWorkbench(directory,{skills,service:new AiService(directory,{safeStorage,scheduler}),readingService:new AiService(directory,{safeStorage,scheduler,priority:'background'})});await workbench.load();
+    knowledge.stopping=true;tocQueue.stopping=true;
     const guard=event=>{if(!trusted(event))throw Error('Invalid sender');};
+    ipcMain.handle('workbench:status',event=>{guard(event);return workbench.snapshot();});
+    for(const [name,method]of [['read','read'],['matrix','matrix'],['draft','draft'],['create','create'],['cancel','cancel'],['retry','retry'],['accept','accept']])ipcMain.handle('workbench:'+name,(event,input)=>{guard(event);return workbench[method](input);});
+    ipcMain.handle('workbench:read-cancel',(event,id)=>{guard(event);return workbench.readings.cancel(id);});
+    ipcMain.handle('workbench:read-retry',(event,id)=>{guard(event);return workbench.readings.retry(id);});
+    ipcMain.handle('workbench:pages',(event,id)=>{guard(event);return workbench.readings.jobs.find(j=>j.id===id)?.pages||workbench.readings.history.find(j=>j.id===id)?.pages||null;});
+    ipcMain.handle('workbench:export',event=>{guard(event);return workbench.export();});
     const documentId=id=>{if(typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))throw Error('Invalid document ID');return id;};
-    ipcMain.handle('toc:status',event=>{guard(event);return tocQueue.snapshot();});
-    ipcMain.handle('toc:enqueue',(event,input)=>{guard(event);return tocQueue.enqueue(input);});
-    ipcMain.handle('toc:cancel',(event,id)=>{guard(event);return tocQueue.cancel(documentId(id));});
-    ipcMain.handle('toc:retry',(event,id)=>{guard(event);return tocQueue.retry(documentId(id));});
-    ipcMain.handle('copies:status',event=>{guard(event);return copies.snapshot();});
+                ipcMain.handle('copies:status',event=>{guard(event);return copies.snapshot();});
     ipcMain.handle('copies:sync',(event,input)=>{guard(event);return copies.sync(input);});
     ipcMain.handle('copies:missing-sources',event=>{guard(event);return copies.missingSources();});
     ipcMain.handle('copies:begin-source',(event,id,size)=>{guard(event);return copies.beginSource(id,size);});
@@ -82,12 +87,7 @@ else{
     ipcMain.handle('skills:change',(event,input)=>{guard(event);return skills.change(input);});
     ipcMain.handle('skills:import',async(event,kind)=>{guard(event);if(!['folder','zip'].includes(kind))throw Error('Skill 匯入格式不正確');const result=await dialog.showOpenDialog(window,{title:kind==='folder'?'匯入研究 Skill 資料夾':'匯入研究 Skill ZIP',properties:[kind==='folder'?'openDirectory':'openFile'],...(kind==='zip'?{filters:[{name:'研究 Skill',extensions:['zip']}]}:{})});if(result.canceled)return skills.status();const selected=result.filePaths[0];if(kind==='folder')return skills.install(selected);const st=await fs.lstat(selected);if(!st.isFile()||st.isSymbolicLink()||st.size>1024*1024)throw Error('請選擇小於 1 MB 的一般 ZIP 檔');return skills.install(await fs.readFile(selected));});
     ipcMain.handle('skills:import-rules',async event=>{guard(event);const result=await dialog.showOpenDialog(window,{title:'匯入共同研究規則',properties:['openFile'],filters:[{name:'Markdown 規則',extensions:['md']}]});if(result.canceled)return null;const selected=result.filePaths[0],st=await fs.lstat(selected);if(!st.isFile()||st.isSymbolicLink()||st.size>65536)throw Error('請選擇小於 64 KB 的一般 UTF-8 Markdown 檔');return {agents:text(await fs.readFile(selected)),normalized:path.basename(selected)!=='AGENTS.md'};});
-    ipcMain.handle('knowledge:status',event=>{guard(event);return knowledge.snapshot();});
-    ipcMain.handle('knowledge:configure',(event,value)=>{guard(event);return knowledge.configure(value);});
-    ipcMain.handle('knowledge:enqueue',(event,input)=>{guard(event);return knowledge.enqueue(input);});
-    ipcMain.handle('knowledge:cancel',(event,id)=>{guard(event);return knowledge.cancel(documentId(id));});
-    ipcMain.handle('knowledge:retry',(event,id)=>{guard(event);return knowledge.retry(documentId(id));});
-    ipcMain.handle('pages:status',event=>{guard(event);return pageTasks.snapshot();});
+                    ipcMain.handle('pages:status',event=>{guard(event);return pageTasks.snapshot();});
     ipcMain.handle('pages:enqueue',(event,input)=>{guard(event);return pageTasks.enqueue(input);});
     ipcMain.handle('pages:cancel',(event,id)=>{guard(event);if(typeof id!=='string'||id.length>64)throw Error('Invalid task ID');return pageTasks.cancel(id);});
     ipcMain.handle('pages:retry',(event,id)=>{guard(event);if(typeof id!=='string'||id.length>64)throw Error('Invalid task ID');return pageTasks.retry(id);});
@@ -96,15 +96,8 @@ else{
     ipcMain.handle('plugins:enable',async(event,id,value)=>{guard(event);return plugins.enable(id,value);});
     ipcMain.handle('plugins:install',async event=>{guard(event);const result=await dialog.showOpenDialog(window,{title:'安裝本機外掛資料夾',properties:['openDirectory']});return result.canceled?plugins.list():plugins.install(result.filePaths[0]);});
     ipcMain.handle('plugins:rpc',async(event,input)=>{guard(event);if(!input||typeof input!=='object'||typeof input.id!=='string'||typeof input.method!=='string')throw Error('Invalid plugin RPC');return plugins.rpc(input.id,input.method,input.args);});
-    ipcMain.handle('research:status',event=>{guard(event);return queue.snapshot();});
-    ipcMain.handle('research:check',async event=>{guard(event);return queue.service.checkCli();});
-    ipcMain.handle('research:configure',async(event,enabled)=>{guard(event);return queue.configure(enabled);});
-    ipcMain.handle('research:enqueue',async(event,input)=>{guard(event);if(!queue.enabled)throw Error('請先啟用自動分析');return queue.enqueue(input);});
-    ipcMain.handle('research:cancel',async(event,id)=>{guard(event);return queue.cancel(documentId(id));});
-    ipcMain.handle('research:retry',async(event,id)=>{guard(event);return queue.retry(documentId(id));});
-    ipcMain.handle('research:forget',async(event,id)=>{guard(event);documentId(id);await pageTasks.forget(id);await knowledge.forget(id);await tocQueue.forget(id);return queue.forget(id);});
-    ipcMain.handle('backup:research',event=>{guard(event);return {jobs:queue.jobs,pageTasks:pageTasks.tasks,knowledgeJobs:knowledge.jobs,researchHistory:queue.history,knowledgeHistory:knowledge.history,skills:skills.status(),tocJobs:tocQueue.jobs,tocHistory:tocQueue.history,copies:copies.snapshot()};});
-    ipcMain.handle('backup:restore-research',async(event,data)=>{guard(event);if(!data||typeof data!=='object')throw Error('備份分析資料不正確');const skillState=data.skills?skills.prepareRestore(data.skills):skills.state,tasks=pageTasks.prepareRestore(data.pageTasks||[]),graphs=knowledge.prepareRestore(data.knowledgeJobs||[]),graphHistory=(data.knowledgeHistory||[]).flatMap(old=>knowledge.prepareRestore([old]));if(!Array.isArray(data.knowledgeHistory||[])||(data.knowledgeHistory||[]).length>10000)throw Error('知識圖歷史備份不正確');if(!Array.isArray(data.tocHistory||[])||(data.tocHistory||[]).length>10000)throw Error('AI 目錄歷史備份不正確');const tocJobs=tocQueue.prepareRestore(data.tocJobs||[]),tocHistory=(data.tocHistory||[]).flatMap(j=>tocQueue.prepareRestore([j])),copyState=copies.prepare(data.copies||{version:1,projects:[],documents:{},jobs:[]},true);if(knowledge.active||pageTasks.active||tocQueue.active||copies.active)throw Error('請先停止研究工作再還原');await queue.restore(data);tocQueue.jobs=tocJobs;tocQueue.history=tocHistory;await tocQueue.save();await copies.restore(copyState);pageTasks.tasks=tasks;knowledge.jobs=graphs;knowledge.history=graphHistory;knowledge.enabled=false;skills.state=skillState;await skills.save();await pageTasks.save();await knowledge.save();return queue.snapshot();});
+    ipcMain.handle('backup:research',event=>{guard(event);return {jobs:queue.jobs,pageTasks:pageTasks.tasks,knowledgeJobs:knowledge.jobs,researchHistory:queue.history,knowledgeHistory:knowledge.history,skills:skills.status(),tocJobs:tocQueue.jobs,tocHistory:tocQueue.history,copies:copies.snapshot(),workbench:workbench.export()};});
+    ipcMain.handle('backup:restore-research',async(event,data)=>{guard(event);if(!data||typeof data!=='object')throw Error('備份分析資料不正確');const skillState=data.skills?skills.prepareRestore(data.skills):skills.state,tasks=pageTasks.prepareRestore(data.pageTasks||[]),graphs=knowledge.prepareRestore(data.knowledgeJobs||[]),graphHistory=(data.knowledgeHistory||[]).flatMap(old=>knowledge.prepareRestore([old]));if(!Array.isArray(data.knowledgeHistory||[])||(data.knowledgeHistory||[]).length>10000)throw Error('知識圖歷史備份不正確');if(!Array.isArray(data.tocHistory||[])||(data.tocHistory||[]).length>10000)throw Error('AI 目錄歷史備份不正確');const tocJobs=tocQueue.prepareRestore(data.tocJobs||[]),tocHistory=(data.tocHistory||[]).flatMap(j=>tocQueue.prepareRestore([j])),copyState=copies.prepare(data.copies||{version:1,projects:[],documents:{},jobs:[]},true);if(knowledge.active||pageTasks.active||tocQueue.active||copies.active)throw Error('請先停止研究工作再還原');if(workbench.active||workbench.readings.active)throw Error('請先停止工作台工作');await workbench.validateRestore(data.workbench);await queue.restore(data);await workbench.restore(data.workbench);tocQueue.jobs=tocJobs;tocQueue.history=tocHistory;await tocQueue.save();await copies.restore(copyState);pageTasks.tasks=tasks;knowledge.jobs=graphs;knowledge.history=graphHistory;knowledge.enabled=false;skills.state=skillState;await skills.save();await pageTasks.save();await knowledge.save();return queue.snapshot();});
     ipcMain.handle('backup:save',async(event,bytes)=>{guard(event);if(!(bytes instanceof Uint8Array)||bytes.byteLength>1024*1024*1024)throw Error('備份過大或格式不正確');const result=await dialog.showSaveDialog(window,{title:'儲存藏經備份',defaultPath:'Cangjing-backup.zip',filters:[{name:'藏經備份',extensions:['zip']}]});if(result.canceled)return false;await fs.writeFile(result.filePath,bytes);return true;});
     ipcMain.handle('backup:open',async event=>{guard(event);const result=await dialog.showOpenDialog(window,{title:'選擇藏經備份',properties:['openFile'],filters:[{name:'藏經備份',extensions:['zip']}]});if(result.canceled)return null;const stat=await fs.stat(result.filePaths[0]);if(!stat.isFile()||stat.size>1024*1024*1024)throw Error('備份超過 1 GB');return fs.readFile(result.filePaths[0]);});
     ipcMain.handle('ai:run',async(event,request)=>{guard(event);try{if(request?.action==='custom')throw Error('請由多頁研究送出自訂指令');return {ok:true,...await ai.run({action:request?.action,text:request?.text})};}catch(error){return {ok:false,error:error.message,usage:error.usage||null};}});
@@ -114,7 +107,7 @@ else{
     ipcMain.handle('ai:info',event=>{guard(event);return ai.info();});
     ipcMain.handle('ai:configure',async(event,change)=>{guard(event);if(typeof change==='string')change={model:change};if(!change||typeof change!=='object'||Array.isArray(change))throw Error('Invalid settings');const allowed={};for(const key of ['provider','model','apiModel','apiKey','removeKey'])if(Object.hasOwn(change,key))allowed[key]=change[key];await ai.configure(allowed);return ai.check();});
     ipcMain.handle('ai:choose-cli',async event=>{guard(event);const result=await dialog.showOpenDialog(window,{title:'選擇 Codex CLI',filters:[{name:'Codex 執行檔',extensions:['exe']}],properties:['openFile']});if(!result.canceled)await ai.configure({cliPath:result.filePaths[0]});return ai.check();});
-    window.on('closed',()=>{ai.cancel();queue.stop();pageTasks.stop();knowledge.stop();tocQueue.stop();copies.stop();});
+    window.on('closed',()=>{ai.cancel();workbench.stop();queue.stop();pageTasks.stop();knowledge.stop();tocQueue.stop();copies.stop();});
     window.webContents.on('did-start-navigation',(_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame)ai.cancel();});
     ipcMain.handle('books:ready',event=>{if(!trusted(event))throw new Error('Invalid sender');ready=true;if(pending.length)window.webContents.send('books:available');});
     ipcMain.handle('books:next',async event=>{
@@ -131,7 +124,7 @@ else{
     ]));
     await window.loadURL(origin);
     if(verifyStartup){
-      const result=await window.webContents.executeJavaScript("(async()=>{for(let n=0;n<100&&!window.libraryReady;n++)await new Promise(r=>setTimeout(r,50));return {title:document.title,ready:window.libraryReady===true,modules:!!(window.ImradReading&&window.StudyBackgrounds&&window.PdfWheel&&window.DocumentSummary&&window.SummaryUI&&window.TocUI&&window.ProjectCopies),bridge:!!window.desktopReader,empty:(await LibraryStore.all()).length===0,copies:(await desktopReader.copiesStatus()).jobs.length,toc:(await desktopReader.tocStatus()).jobs.length,node:typeof require,summary:!!document.querySelector('#document-summary'),defaultSkill:(await desktopReader.skillsStatus()).defaults.research}})()");
+      const result=await window.webContents.executeJavaScript("(async()=>{for(let n=0;n<100&&!window.libraryReady;n++)await new Promise(r=>setTimeout(r,50));return {title:document.title,ready:window.libraryReady===true,modules:!!(window.ImradReading&&window.StudyBackgrounds&&window.PdfWheel&&window.EvidenceWorkbenchUI&&window.ProjectCopies),bridge:!!window.desktopReader,empty:(await LibraryStore.all()).length===0,copies:(await desktopReader.copiesStatus()).jobs.length,toc:(await desktopReader.backupResearch()).tocJobs.length,node:typeof require,summary:!!document.querySelector('#evidence-workbench'),defaultSkill:(await desktopReader.skillsStatus()).defaults.research}})()");
       const passed=result.ready&&result.modules&&result.bridge&&result.empty&&result.summary&&result.node==='undefined'&&result.copies===0&&result.toc===0&&result.defaultSkill==='imrad-reading';
       console.log(JSON.stringify({verification:'packaged-startup',packaged:app.isPackaged,version:app.getVersion(),isolatedProfile:verificationProfile,...result,passed}));app.exit(passed?0:1);
     }

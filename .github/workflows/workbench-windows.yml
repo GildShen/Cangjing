@@ -1,0 +1,52 @@
+name: Workbench Windows validation
+on:
+  push:
+    branches: [codex/evidence-workbench-0-6-0]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: desktop
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - name: Complete regression suite
+        run: npm test
+      - name: Real Electron workspace interactions and viewport screenshots
+        run: npm run test:ui:workbench
+      - name: Build NSIS installer
+        run: npm run dist
+      - name: Verify packaged startup and installer digest
+        run: |
+          $env:ELECTRON_RUN_AS_NODE=$null
+          & ../outputs/desktop-release/win-unpacked/Cangjing.exe --verify-startup
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-FileHash ../outputs/desktop-release/Cangjing-Setup-0.6.0.exe -Algorithm SHA256 | Format-List | Out-File ../outputs/desktop-release/SHA256SUMS-0.6.0.txt
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workbench-validation
+          path: outputs/verification-0.6.0
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload tested installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cangjing-0.6.0-Windows
+          path: |
+            outputs/desktop-release/Cangjing-Setup-0.6.0.exe
+            outputs/desktop-release/SHA256SUMS-0.6.0.txt
+          if-no-files-found: error
+          retention-days: 7

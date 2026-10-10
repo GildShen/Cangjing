@@ -28,3 +28,7 @@
 只修改 C:/Users/USER/Documents/Codex/2026-10-03/cangjing 的藏經 checkout，沒有對 D:/dev/books 的藏書做寫入。原作者 GildShen 的 MIT 署名與授權保留。
 
 本機安裝包：outputs/desktop-release/Cangjing-Setup-0.5.0.exe。測試、建置、audit、封裝及截圖證據：outputs/verification-0.5.0（manifest 含逐檔 SHA256）。文件與原始碼提交至 Cangjing/main，安裝包、測試 profile 與私人工作目錄不提交。
+
+## 0.6.0 驗證（2026-10-10）
+
+完整回歸 96/96、Electron 介面 36/36 通過。已檢查 390、768、1440、1920、2560 寬度及深色截圖；Windows 安裝檔重新建置。真實 SciFact 12 案評估與功能測試分開，見 [交付報告](delivery-0.6.0.md)。

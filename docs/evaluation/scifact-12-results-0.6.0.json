@@ -1,0 +1,39 @@
+{
+  "fixture": "SciFact development balanced fixed 12",
+  "datasetHash": "35bd59beee0d09ff08ff30fdad03b9310abb92c631cab62ec4b20cd73364a730",
+  "scope": "abstract-only; no physical PDF pages",
+  "annotationSource": "https://github.com/allenai/scifact",
+  "semanticEvaluation": "measured",
+  "limitations": [
+    "English scientific abstracts only.",
+    "No physical PDF-page evaluation.",
+    "No human-annotated partial-support cases in this sample.",
+    "Not a Chinese/nonexperimental/full-paper benchmark.",
+    "Published human annotations are used; no new human review performed."
+  ],
+  "metrics": {
+    "total": 12,
+    "unjudged": 0,
+    "unjudgedRate": 0,
+    "supportPrecision": 1,
+    "supportRecall": 0.75,
+    "falseSupport": 0,
+    "missedSupport": 1,
+    "confusion": {
+      "unclear": {
+        "unclear": 3,
+        "partial": 1
+      },
+      "supported": {
+        "unclear": 1,
+        "supported": 3
+      },
+      "unsupported": {
+        "unsupported": 3,
+        "partial": 1
+      }
+    },
+    "reportedTotalTokens": 159237,
+    "missingUsage": 0
+  }
+}

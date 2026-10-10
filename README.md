@@ -1,8 +1,12 @@
 # 藏經 Cangjing
 
-本機 PDF 研究文件整理工具，基於 [藏書 Cangshu](https://github.com/GildShen/cangshu)（MIT，原作者 GildShen）。目前版本 0.5.0，主要驗證平台為 Windows。
+本機 PDF 研究文件整理工具，基於 [藏書 Cangshu](https://github.com/GildShen/cangshu)（MIT，原作者 GildShen）。目前版本 0.6.0 證據研究工作台，主要驗證平台為 Windows。
 
-## 功能
+## 0.6.0 證據研究工作台
+
+研究助理整合選取文字與多頁／Skill。新的手動證據工作台提供文獻閱讀、版本矩陣、主張查核、研究缺口與修訂提案；移除旧背景分析、摘要／心智圖／圖譜與 AI 目錄入口，保留舊資料供備份匯出。詳見 [工作台](docs/evidence-workbench.md) 與 [交付狀態](docs/delivery-0.6.0.md)。0.6.0 Windows 安裝檔已建置；下列舊功能記錄屬歷史版本。
+
+## 歷史功能
 
 0.5.0 將 `imrad-reading` 設為內建預設研究 Skill，全文預讀、摘要側欄與心智圖共用 IMRaD 功能摘要、可溯源研究邏輯、經選擇及確認的 Paper ↔ My Study 三層結果。Results 與 Discussion 分開，非實驗文章按實際內容；研究背景不自動帶入，缺資料明示。舊分析、指令快照、自訂 Skills 與共同規則保留，不自動重分析。詳見 [IMRaD 閱讀](docs/imrad-reading.md)。
 

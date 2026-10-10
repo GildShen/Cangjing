@@ -6,8 +6,8 @@
  const node=(tag,text)=>{const e=document.createElement(tag);if(text)e.textContent=text;return e;};
  const button=(icon,label,fn)=>{const b=node('button');b.type='button';b.title=label;b.setAttribute('aria-label',label);b.innerHTML='<i data-lucide="'+icon+'"></i>';b.onclick=()=>Promise.resolve().then(fn).catch(e=>{message.textContent=e.message;});return b;};
  const style=node('link');style.rel='stylesheet';style.href='ai-reader.css';document.head.append(style);
- const panel=node('section');panel.id='ai-panel';panel.hidden=true;panel.setAttribute('aria-label','AI 閱讀助理');
- const header=node('div');header.className='ai-heading';header.append(node('h2','AI 閱讀助理'),button('settings','AI 設定',configure),button('x','關閉 AI 側欄',()=>{panel.hidden=true;}));
+ const panel=node('section');panel.id='ai-panel';panel.hidden=true;panel.setAttribute('aria-label','研究助理');
+ const header=node('div');header.className='ai-heading';header.append(node('h2','研究助理'),button('settings','AI 設定',configure),button('x','關閉 AI 側欄',()=>{panel.hidden=true;}));
  const location=node('p'),quote=node('blockquote'),message=node('p'),answer=node('div');message.setAttribute('role','status');answer.className='ai-answer';answer.setAttribute('aria-live','polite');
  const usage=node('div');usage.className='ai-usage';usage.setAttribute('aria-label','Token 用量');
  function showUsage(value,model){UsageUI.updateUsage(usage,[{usage:value,at:Date.now(),model:model||result?.model}]);}
@@ -23,7 +23,7 @@
  });save.append(node('span','存成筆記'));save.disabled=true;
  const footer=node('div');footer.className='ai-actions';footer.append(cancel,retry,copy,save);
  panel.append(header,location,quote,commands,message,usage,answer,footer);document.querySelector('.reading-body').append(panel);
- document.querySelector('.reader-tools').append(button('sparkles','AI 閱讀助理',()=>{panel.hidden=!panel.hidden;if(!api)message.textContent='AI 整合僅限桌面版';}));
+ function open(){const readerVisible=!$('reader').hidden;(readerVisible?document.querySelector('.reading-body'):document.body).append(panel);panel.classList.toggle('assistant-global',!readerVisible);panel.hidden=false;if(!api)message.textContent='AI 整合僅限桌面版';}document.querySelector('.reader-tools').append(button('sparkles','研究助理',open));const mode=document.createElement('div');mode.className='assistant-modes';function setMode(mode){for(const n of [location,quote,commands,message,usage,answer,footer])n.hidden=mode==='pages';const host=document.querySelector('.assistant-page-host');if(host)host.hidden=mode!=='pages';}const selected=button('text-select','選取文字',()=>setMode('selection'));const multiple=button('files','指定頁面與 Skill',()=>window.PageResearch?.open());mode.append(selected,multiple);header.after(mode);
  const settingsDialog=node('dialog');settingsDialog.className='library-dialog';settingsDialog.setAttribute('aria-label','AI 設定');
  const settingsHeading=node('div');settingsHeading.className='dialog-heading';settingsHeading.append(node('h2','AI 引擎'),button('x','關閉 AI 設定',()=>settingsDialog.close()));
  const state=node('p'),pathLabel=node('p'),label=node('label','模型（留空使用 CLI 預設）'),model=node('input');model.type='text';model.maxLength=100;model.setAttribute('aria-label','Codex 模型');label.append(model);
@@ -51,7 +51,7 @@
   catch(e){message.textContent=e.message;if(usage.textContent==='Token 用量：等待服務回報')showUsage(null);}
   finally{running=false;controls();}
  }
- window.ReaderAI={start(action,selection){
+ window.ReaderAI={open,mode:setMode,start(action,selection){open();setMode('selection');if(document.querySelector('.assistant-page-host'))document.querySelector('.assistant-page-host').hidden=true;commands.hidden=false;
   if($('document-summary'))$('document-summary').hidden=true;panel.hidden=false;if(running){message.textContent='已有 AI 工作執行中，請先取消或等待完成';return;}
   if(selection.quote.length>20000){message.textContent='一次最多處理 20,000 字，請縮小選取範圍';return;}
   source=structuredClone(selection);source.action=action;result=null;answer.textContent='';usage.textContent='';location.textContent=source.title+' · '+source.chapter;quote.textContent=source.quote;copy.disabled=true;save.disabled=true;controls();run(action);
