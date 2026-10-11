@@ -1,7 +1,7 @@
 name: Workbench Windows validation
 on:
   push:
-    branches: [codex/evidence-workbench-0-6-0]
+    branches: [codex/reading-evidence-0-6-1]
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,21 +32,21 @@ jobs:
           $env:ELECTRON_RUN_AS_NODE=$null
           & ../outputs/desktop-release/win-unpacked/Cangjing.exe --verify-startup
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Get-FileHash ../outputs/desktop-release/Cangjing-Setup-0.6.0.exe -Algorithm SHA256 | Format-List | Out-File ../outputs/desktop-release/SHA256SUMS-0.6.0.txt
+          Get-FileHash ../outputs/desktop-release/Cangjing-Setup-0.6.1.exe -Algorithm SHA256 | Format-List | Out-File ../outputs/desktop-release/SHA256SUMS-0.6.1.txt
       - name: Upload validation evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: workbench-validation
-          path: outputs/verification-0.6.0
+          path: outputs/verification-0.6.1
           if-no-files-found: ignore
           retention-days: 7
       - name: Upload tested installer
         uses: actions/upload-artifact@v4
         with:
-          name: Cangjing-0.6.0-Windows
+          name: Cangjing-0.6.1-Windows
           path: |
-            outputs/desktop-release/Cangjing-Setup-0.6.0.exe
-            outputs/desktop-release/SHA256SUMS-0.6.0.txt
+            outputs/desktop-release/Cangjing-Setup-0.6.1.exe
+            outputs/desktop-release/SHA256SUMS-0.6.1.txt
           if-no-files-found: error
           retention-days: 7

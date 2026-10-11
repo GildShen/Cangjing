@@ -1,6 +1,10 @@
 # 藏經 Cangjing
 
-本機 PDF 研究文件整理工具，基於 [藏書 Cangshu](https://github.com/GildShen/cangshu)（MIT，原作者 GildShen）。目前版本 0.6.0 證據研究工作台，主要驗證平台為 Windows。
+本機 PDF 研究文件整理工具，基於 [藏書 Cangshu](https://github.com/GildShen/cangshu)（MIT，原作者 GildShen）。目前版本 0.6.1 證據研究工作台，主要驗證平台為 Windows。
+
+## 0.6.1 閱讀證據
+
+PDF 右側顯示本頁既有分析，可定位原文、固定證據、返回閱讀位置，建立段落連結與来源筆記反向引用，手動保存閱讀工作區。詳見 [閱讀證據設計與限制](docs/reading-evidence-0.6.1.md)。
 
 ## 0.6.0 證據研究工作台
 
